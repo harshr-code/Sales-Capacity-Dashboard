@@ -99,7 +99,6 @@ tbody tr.click:hover td{background:var(--head)}
     <button data-t="suff">Lead sufficiency &amp; SC utilisation</button>
     <button data-t="funnel">Lead utilisation × Channel</button>
     <button data-t="fcity">Lead utilisation × City</button>
-    <button data-t="lu">Lead utilisation</button>
     <button data-t="cohort">BQL cohort</button>
     <button data-t="mop">MOP tracking</button>
   </nav>
@@ -157,17 +156,6 @@ tbody tr.click:hover td{background:var(--head)}
     <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><label>Lead score band<select id="fFcBand"></select></label></div>
     <div class="read" id="rFc"></div>
     <div class="tw"><table id="tFc"></table></div>
-  </section>
-</div>
-
-<!-- LEAD UTILISATION -->
-<div class="tab" id="t-lu">
-  <section>
-    <h2>Lead utilisation — month on month (effort basis)</h2>
-    <p class="def"><b>Effort basis:</b> each metric is counted in the month it happened — not by the month the lead was BQL'd. One row per month: BQL on BQL date, MS on meeting slot date, MD on meeting done date. City and sales channel from the top filter (sales channel applies to MS / MD only). The date range does not apply here; the current month runs to the as-of date.</p>
-    <div class="sf"><label>Channel<select id="fLuCh"></select></label><label>Sub-channel<select id="fLuSub"></select></label><label>Lead score band<select id="fLuBand"></select></label></div>
-    <div class="read" id="rLu"></div>
-    <div class="tw"><table id="tLu"></table></div>
   </section>
 </div>
 
@@ -234,7 +222,7 @@ tbody tr.click:hover td{background:var(--head)}
 <script>
 let D, DI = {}, OTH;
 const S = {city:'ALL', from:null, to:null, perDay:2, team:'0', tab:'overview',
-  ch1:'ALL', sub1:'ALL', sort1:'u', band2:'ALL', fcCh:'ALL', fcSub:'ALL', fcBand:'ALL', luCh:'ALL', luSub:'ALL', luBand:'ALL',
+  ch1:'ALL', sub1:'ALL', sort1:'u', band2:'ALL', fcCh:'ALL', fcSub:'ALL', fcBand:'ALL',
   band3:'ALL', ch3:'ALL', ch0:'ALL', m0c:'2', v0c:'p'};
 const $ = id => document.getElementById(id);
 const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
@@ -292,9 +280,9 @@ function init(d) {
   opts($('fCity'), D.cities.map((c, i) => [i, c]), 'All cities (PAN)');
   opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
   const chOpts = D.channels.map((c, i) => [i, c]), bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
-  ['f0Ch', 'f1Ch', 'f3Ch', 'fLuCh', 'fFcCh'].forEach(id => opts($(id), chOpts, 'All channels'));
-  ['f2Band', 'f3Band', 'fLuBand', 'fFcBand'].forEach(id => opts($(id), bandOpts, 'All'));
-  subOpts($('f1Sub'), 'ALL'); subOpts($('fLuSub'), 'ALL'); subOpts($('fFcSub'), 'ALL');
+  ['f0Ch', 'f1Ch', 'f3Ch', 'fFcCh'].forEach(id => opts($(id), chOpts, 'All channels'));
+  ['f2Band', 'f3Band', 'fFcBand'].forEach(id => opts($(id), bandOpts, 'All'));
+  subOpts($('f1Sub'), 'ALL'); subOpts($('fFcSub'), 'ALL');
   ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = maxDate(); });
   setMonth(D.asOf.slice(0, 7));
   const on = (id, f) => $(id).addEventListener(id === 'fPerDay' ? 'input' : 'change', e => { f(e.target.value); render(); });
@@ -312,8 +300,6 @@ function init(d) {
   on('f2Band', v => S.band2 = v);
   on('fFcCh', v => { S.fcCh = v; S.fcSub = 'ALL'; subOpts($('fFcSub'), v); $('fFcSub').value = 'ALL'; });
   on('fFcSub', v => S.fcSub = v); on('fFcBand', v => S.fcBand = v);
-  on('fLuCh', v => { S.luCh = v; S.luSub = 'ALL'; subOpts($('fLuSub'), v); $('fLuSub').value = 'ALL'; });
-  on('fLuSub', v => S.luSub = v); on('fLuBand', v => S.luBand = v);
   on('f3Band', v => S.band3 = v); on('f3Ch', v => S.ch3 = v);
   on('f0Ch', v => S.ch0 = v); on('f0cM', v => S.m0c = v); on('f0cV', v => S.v0c = v);
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.t));
@@ -379,7 +365,6 @@ function render() {
   renderSuff(R, ids, all, I);
   renderFunnel(R, I);
   renderFunnelCity(R);
-  renderLU(ids, I);
   renderCohort(ids);
   renderMop(R, ids);
   renderOverview(R, I);
@@ -490,30 +475,6 @@ function renderFunnelCity(R) {
     (S.city === 'ALL' && ranked.length ? `<p>Lowest ${keyLbl}: ${ranked.slice(0, 4).map(x => x.n + ' ' + pct(x.r)).join(', ')}. Highest: ${ranked.slice(-3).reverse().map(x => x.n + ' ' + pct(x.r)).join(', ')}.</p>` : '');
 }
 
-// ---------- Lead utilisation: months in columns (effort view) ----------
-function renderLU(ids, I) {
-  const months = D.months.filter(m => m <= D.asOf.slice(0, 7)), idSet = new Set(ids);
-  const curM = D.asOf.slice(0, 7), asDay = +D.asOf.slice(8);
-  const prevM = months.length > 1 ? months[months.length - 2] : null;
-  const ok = (ch, sb, b) => (S.luCh === 'ALL' || ch == S.luCh) && (S.luSub === 'ALL' || sb == S.luSub) && bandOk(b, S.luBand);
-  const cols = months.map(m => ({m, lbl: monLbl(m) + (m === curM ? ' (MTD)' : ''), b: 0, s: 0, d: 0}));
-  const lm = prevM ? {lbl: `${monLbl(prevM)} 1–${asDay} (LMTD)`, b: 0, s: 0, d: 0} : null;
-  const add = (key, d, v) => {
-    if (d > D.asOfIdx) return;
-    const k = D.dates[d], col = cols.find(x => k.startsWith(x.m)); if (col) col[key] += v;
-    if (lm && k.startsWith(prevM) && +k.slice(8) <= asDay) lm[key] += v;
-  };
-  for (const [d, c, ch, sb, b, v] of D.bql) if (idSet.has(c) && ok(ch, sb, b)) add('b', d, v);
-  for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) if (idSet.has(c) && teamOk(t) && ok(ch, sb, b)) { add('s', d, ms); add('d', d, md); }
-  // one row per month, metrics across
-  $('tLu').innerHTML = `<thead><tr><th>Month</th><th>BQL</th><th>MS</th><th>MD</th><th class="sep">BQL → MS</th><th>MS → MD</th></tr></thead><tbody>` +
-    cols.map(x => `<tr><td>${x.lbl}</td><td>${fmt(x.b)}</td><td>${fmt(x.s)}</td><td>${fmt(x.d)}</td><td class="sep">${pct(x.s / x.b)}</td><td>${pct(x.d / x.s)}</td></tr>`).join('') + '</tbody>';
-  const cur = cols[cols.length - 1], chg = (a, b) => b ? ((a / b - 1) * 100).toFixed(1) + '%' : '–';
-  const sc = [S.city === 'ALL' ? 'PAN' : D.cities[+S.city], S.luSub !== 'ALL' ? D.subs[S.luSub] : S.luCh !== 'ALL' ? D.channels[S.luCh] : 'all channels', S.luBand === 'ALL' ? 'all lead scores' : D.bands[S.luBand]].join(' · ');
-  $('rLu').innerHTML = `<p>${sc} · effort basis. ${monLbl(curM)} MTD: BQL → MS ${pct(cur.s / cur.b)}, MS → MD ${pct(cur.d / cur.s)}.</p>`;
-  I.lu = lm ? {cur, lm, chg, curM} : null;
-}
-
 // ---------- Cohort (pending) ----------
 function renderCohort(ids) {
   const months = D.months.filter(m => m <= D.asOf.slice(0, 7));
@@ -580,7 +541,7 @@ function renderMop(R, ids) {
 function renderOverview(R, I) {
   const s = I.suff, o = s.sel, scope = S.city === 'ALL' ? 'PAN' : D.cities[+S.city];
   const t = (k, v, n, cls) => `<div class="tile ${cls || ''}"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`;
-  const lu = I.lu, idSet = new Set(cityList());
+  const idSet = new Set(cityList());
   // BQL for the same dates, cities and channel / sub-channel filter as the other tiles
   let bqSel = 0;
   for (const [d, c, ch, sb, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && idSet.has(c) && (S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) bqSel += v;
@@ -597,9 +558,7 @@ function renderOverview(R, I) {
   const f = I.funnel;
   $('att').innerHTML = [
     card('Lead sufficiency & SC utilisation', 'suff', `<p>MS at <b>${pct(s.pan.u)}</b> of capacity; MD / SC <b>${f1(s.pan.mdsc)}</b> vs target ${f1(s.tgt)}; capacity utilisation <b>${pct(s.pan.a)}</b> (PAN).</p><p>Below 80% of capacity: ${list(s.short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.u)))}.</p><p>Lowest capacity utilisation: ${list(s.under.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.a)))}.</p>`),
-    card('Lead utilisation × Channel', 'funnel', `<p>${f.city}: BQL → MD <b>${pct(f.cr[3])}</b>${f.isPan ? '' : ` vs PAN ${pct(f.pr[3])}`}; MS → MD ${pct(f.cr[2])}.</p><p>${f.isPan ? 'Lowest BQL → MD by channel' : 'Furthest below PAN'}: ${list(f.weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`))}.</p>`),
-    card('Lead utilisation', 'lu', lu ? `<p>${scope} · ${monLbl(lu.curM)} MTD vs LMTD: BQL ${lu.chg(lu.cur.b, lu.lm.b)}, MS ${lu.chg(lu.cur.s, lu.lm.s)}, MD ${lu.chg(lu.cur.d, lu.lm.d)}.</p><p>BQL → MS ${pct(lu.cur.s / lu.cur.b)} (LMTD ${pct(lu.lm.s / lu.lm.b)}); MS → MD ${pct(lu.cur.d / lu.cur.s)} (LMTD ${pct(lu.lm.d / lu.lm.s)}).</p>` : '<p>Needs two months of data.</p>'),
-  ].join('');
+    card('Lead utilisation × Channel', 'funnel', `<p>${f.city}: BQL → MD <b>${pct(f.cr[3])}</b>${f.isPan ? '' : ` vs PAN ${pct(f.pr[3])}`}; MS → MD ${pct(f.cr[2])}.</p><p>${f.isPan ? 'Lowest BQL → MD by channel' : 'Furthest below PAN'}: ${list(f.weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`))}.</p>`),  ].join('');
   document.querySelectorAll('[data-go]').forEach(a => a.onclick = () => { showTab(a.dataset.go); window.scrollTo({top: 0}); });
 }
 </script>
