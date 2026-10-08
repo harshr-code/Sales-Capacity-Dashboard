@@ -14,8 +14,9 @@ $MOP_GID = '1033353473'   # day-wise MOP for the current month (Cluster, Day, BQ
 $MS_HDR  = 'Lead_ID,City,Source_Class_Final,Source_Sub_Class_Final,Current_SC_Email,Current_Sales_Channel,Last_Meeting_Schedule_Date,Last_Meeting_Done_Date,Score,Channel'
 $BQL_HDR = 'Action_Date,CITY,Source_Class_final,Source_Sub_Class_final,bill_qualified,score,Channel Filter'
 
-$CLUSTERS = @('Agra','Ahmedabad','Amravati','Aurangabad','Bangalore','Bhopal','Chennai','Coimbatore','Delhi NCR','Gwalior','Hyderabad','Indore','Jabalpur','Jaipur','Jalgaon','Kanpur','Kolhapur','Lucknow','Nagpur','Nashik','Pune','Solapur','Varanasi')
-$NCR      = @('Delhi','Noida','Ghaziabad','Gurgaon','Faridabad')
+# 24 main cities (Delhi NCR shown city-wise); everything else = Other cities
+$CLUSTERS = @('Delhi','Ghaziabad','Noida','Gurgaon','Faridabad','Ahmedabad','Surat','Bangalore','Hyderabad','Amravati','Nagpur','Aurangabad','Nashik','Pune','Kolhapur','Bhopal','Gwalior','Indore','Jabalpur','Jaipur','Kanpur','Lucknow','Varanasi','Chennai')
+$ALIAS    = @{ 'New Delhi' = 'Delhi'; 'Gurugram' = 'Gurgaon'; 'Greater Noida' = 'Noida'; 'Bengaluru' = 'Bangalore'; 'Banglore' = 'Bangalore' }
 $CHANNELS = @('Digital','Referral','BTL','SolarPro','Others')
 $BANDS    = @('Excellent (9-10)','Good (7-9)','Average (5-7)','Poor (<5)','No score')
 $TEAMS    = @('Field Sales','Inside Sales','Unassigned')
@@ -41,7 +42,7 @@ function Get-Date2($s) {
 $CLUSTERS += 'Other cities'
 $cityIdx = @{}; for ($i = 0; $i -lt $CLUSTERS.Count; $i++) { $cityIdx[$CLUSTERS[$i]] = $i }
 function Get-CityIdx($s) {
-  $s = "$s".Trim(); if ($NCR -contains $s) { $s = 'Delhi NCR' }
+  $s = "$s".Trim(); if ($ALIAS.ContainsKey($s)) { $s = $ALIAS[$s] }
   if ($cityIdx.ContainsKey($s)) { return $cityIdx[$s] } else { return $CLUSTERS.Count - 1 }
 }
 # Sub-channels from Col D (Source_Sub_Class_Final), keyed per channel
