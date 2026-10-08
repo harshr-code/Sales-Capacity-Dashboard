@@ -18,7 +18,10 @@ function Get-Hash($e) { (($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($e)) |
 function Get-City($s) {
   $s = "$s".Trim()
   if ($s -match '^(banglore|bengaluru|bangalore)$') { return 'Bangalore' }
-  if ($s -match '^(delhi|new delhi|delhi ncr|noida|greater noida|ghaziabad|gurgaon|gurugram|faridabad)$') { return 'Delhi NCR' }
+  if ($s -match '^(new delhi|delhi)$') { return 'Delhi' }
+  if ($s -match '^(noida|greater noida)$') { return 'Noida' }
+  if ($s -match '^(gurgaon|gurugram)$') { return 'Gurgaon' }
+  if ($s -match '^delhi ncr$') { return 'Delhi NCR (unsplit)' }
   if ($s -match '^aurangabad|^chhatrapati') { return 'Aurangabad' }
   return (Get-Culture).TextInfo.ToTitleCase($s.ToLower())
 }
