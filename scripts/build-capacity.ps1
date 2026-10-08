@@ -37,10 +37,21 @@ function Get-Date2($s) {
   if ($s -and [datetime]::TryParseExact($s.Trim(), 'dd/MM/yyyy', $INV, 'None', [ref]$d)) { return $d }
   return $null
 }
+# Every city outside the 23 clusters (incl. blank / Invalid / Inactive) goes to "Other cities", so PAN = sheet total
+$CLUSTERS += 'Other cities'
 $cityIdx = @{}; for ($i = 0; $i -lt $CLUSTERS.Count; $i++) { $cityIdx[$CLUSTERS[$i]] = $i }
 function Get-CityIdx($s) {
   $s = "$s".Trim(); if ($NCR -contains $s) { $s = 'Delhi NCR' }
-  if ($cityIdx.ContainsKey($s)) { return $cityIdx[$s] } else { return -1 }
+  if ($cityIdx.ContainsKey($s)) { return $cityIdx[$s] } else { return $CLUSTERS.Count - 1 }
+}
+# Sub-channels from Col D (Source_Sub_Class_Final), keyed per channel
+$SUBS = New-Object System.Collections.Generic.List[string]; $SUBCH = New-Object System.Collections.Generic.List[int]; $subIdx = @{}
+function Get-SubIdx($ch, $cls, $sub) {
+  $n = ("$sub".Trim() -replace '["\\]', ''); if (-not $n) { $n = '(blank)' }
+  if ("$cls".Trim() -eq 'Referral' -and $n -eq 'BTL') { $n = 'BTL Referral' }
+  $k = "$ch|$n"
+  if (-not $subIdx.ContainsKey($k)) { $subIdx[$k] = $SUBS.Count; $SUBS.Add($n); $SUBCH.Add($ch) }
+  return $subIdx[$k]
 }
 function Get-ChIdx($s) { $i = [array]::IndexOf($CHANNELS, "$s".Trim()); if ($i -lt 0) { 4 } else { $i } }
 function Get-Band($s) {
@@ -95,32 +106,33 @@ for ($mi = 0; $mi -lt $months.Count; $mi++) {
   $roster[$mk] = $map
 }
 
-# Meetings: key d|c|ch|b|t|k -> [ms, md]. MS on slot date (future slots kept to month end), MD on done date (to as-of).
+# Meetings: key d|c|ch|sub|b|t|k -> [ms, md]. MS on slot date (future slots kept to month end), MD on done date (to as-of).
 # k = SC class of the lead's current SC in the manpower mapping of the meeting's month.
 $m = @{}; $hashCache = @{}
-function Add-M($dt, $c, $ch, $b, $t, $h, $slot) {
+function Add-M($dt, $c, $ch, $sb, $b, $t, $h, $slot) {
   $mk = $dt.ToString('yyyy-MM'); $k = 4
   if ($h) { $hk = "$h|$t"; if ($roster[$mk].ContainsKey($hk)) { $k = $roster[$mk][$hk] } else { $k = 3 } }
-  $key = "$($dIdx[$dt.ToString('yyyy-MM-dd')])|$c|$ch|$b|$t|$k"
+  $key = "$($dIdx[$dt.ToString('yyyy-MM-dd')])|$c|$ch|$sb|$b|$t|$k"
   if (-not $m.ContainsKey($key)) { $m[$key] = @(0, 0) }; $m[$key][$slot]++
 }
 foreach ($r in $ms) {
-  $c = Get-CityIdx $r.City; if ($c -lt 0) { continue }
+  $c = Get-CityIdx $r.City
   $ch = Get-ChIdx $r.Channel; $b = Get-Band $r.Score; $t = Get-Team $r.Current_Sales_Channel
+  $sb = Get-SubIdx $ch $r.Source_Class_Final $r.Source_Sub_Class_Final
   $email = "$($r.Current_SC_Email)".Trim().ToLower()
   $h = ''
   if ($email) { if (-not $hashCache.ContainsKey($email)) { $hashCache[$email] = Get-Hash $email }; $h = $hashCache[$email] }
   $msd = Get-Date2 $r.Last_Meeting_Schedule_Date
   $mdd = Get-Date2 $r.Last_Meeting_Done_Date
-  if ($msd -and $msd -ge $startD -and $msd -le $endD) { Add-M $msd $c $ch $b $t $h 0 }
-  if ($mdd -and $mdd -ge $startD -and $mdd -le $asOf) { Add-M $mdd $c $ch $b $t $h 1 }
+  if ($msd -and $msd -ge $startD -and $msd -le $endD) { Add-M $msd $c $ch $sb $b $t $h 0 }
+  if ($mdd -and $mdd -ge $startD -and $mdd -le $asOf) { Add-M $mdd $c $ch $sb $b $t $h 1 }
 }
 
 # BQL: key d|c|ch|b -> SUM(bill_qualified), only rows with bill_qualified > 0
 $bqlAgg = @{}
 foreach ($r in $bq) {
   $v = 0; if (-not [int]::TryParse("$($r.bill_qualified)".Trim(), [ref]$v) -or $v -le 0) { continue }
-  $c = Get-CityIdx $r.CITY; if ($c -lt 0) { continue }
+  $c = Get-CityIdx $r.CITY
   $d = Get-Date2 $r.Action_Date; if (-not $d -or $d -lt $startD -or $d -gt $endD) { continue }
   $k = "$($dIdx[$d.ToString('yyyy-MM-dd')])|$c|$(Get-ChIdx $r.'Channel Filter')|$(Get-Band $r.score)"
   if ($bqlAgg.ContainsKey($k)) { $bqlAgg[$k] += $v } else { $bqlAgg[$k] = $v }
@@ -141,7 +153,7 @@ $chOrder = @(0, 1, 3, 2)   # Digital, Referral, SolarPro->idx3, BTL->idx2
 function Get-Num($s) { $v = 0.0; if ([double]::TryParse("$s".Trim(), [Globalization.NumberStyles]::Float, $INV, [ref]$v)) { $v } else { 0 } }
 for ($i = 3; $i -lt $ml.Count; $i++) {
   $p = $ml[$i] -split ','
-  $c = Get-CityIdx $p[0]; if ($c -lt 0) { continue }
+  $c = Get-CityIdx $p[0]; if ($c -eq $CLUSTERS.Count - 1) { continue }   # MOP only for the 23 clusters
   $day = 0; if (-not [int]::TryParse($p[1], [ref]$day)) { continue }
   foreach ($bk in $blocks) {
     $o = Get-Num $p[$bk.t]
@@ -162,6 +174,7 @@ $sb = New-Object Text.StringBuilder
 [void]$sb.Append('{"asOf":"' + $asOf.ToString('yyyy-MM-dd') + '","generated":"' + [datetime]::UtcNow.AddHours(5.5).ToString('yyyy-MM-dd HH:mm') + ' IST"')
 [void]$sb.Append(',"dates":[' + (Join-Q $dates) + '],"cities":[' + (Join-Q $CLUSTERS) + '],"channels":[' + (Join-Q $CHANNELS) + '],"bands":[' + (Join-Q $BANDS) + '],"teams":[' + (Join-Q $TEAMS) + ']')
 [void]$sb.Append(',"m":[' + (($m.Keys | ForEach-Object { '[' + ($_ -replace '\|', ',') + ',' + $m[$_][0] + ',' + $m[$_][1] + ']' }) -join ',') + ']')
+[void]$sb.Append(',"subs":[' + (Join-Q $SUBS) + '],"subCh":[' + ($SUBCH -join ',') + ']')
 [void]$sb.Append(',"months":[' + (Join-Q $months) + '],"rosterFrom":[' + (Join-Q $rosterFrom) + ']')
 [void]$sb.Append(',"rost":[' + (($rost.Keys | ForEach-Object { '[' + ($_ -replace '\|', ',') + ',' + $rost[$_] + ']' }) -join ',') + ']')
 [void]$sb.Append(',"mop":{"month":"' + $asOf.ToString('yyyy-MM') + '","rows":[' + ($mopRows -join ',') + ']}')
