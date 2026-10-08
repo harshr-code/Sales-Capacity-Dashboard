@@ -439,21 +439,21 @@ function renderFunnel(R, I) {
   tot(city); tot(pan);
   // LS LRM is tracked for Digital only (other channels reach LRM without bill qualification)
   const lrmOk = k => k === 0;
-  // [BQL -> LS LRM, LS LRM -> MS, MS -> MD, BQL -> MS, BQL -> MD]
-  const rates = (o, k) => [lrmOk(k) ? o.l[k] / o.b[k] : NaN, lrmOk(k) ? o.s[k] / o.l[k] : NaN, o.d[k] / o.s[k], o.s[k] / o.b[k], o.d[k] / o.b[k]];
+  // [BQL -> LS LRM, LS LRM -> MS, BQL -> MS, MS -> MD, BQL -> MD]
+  const rates = (o, k) => [lrmOk(k) ? o.l[k] / o.b[k] : NaN, lrmOk(k) ? o.s[k] / o.l[k] : NaN, o.s[k] / o.b[k], o.d[k] / o.s[k], o.d[k] / o.b[k]];
   const names = D.channels.concat('Total');
   const line = (o, k, isPan, cls) => {
     const r = rates(o, k), p = rates(pan, k);
     const cells = r.map((x, j) => `<td class="${j === 0 ? 'sep ' : ''}${isPan || isPanView ? '' : toneVs(x, p[j])}">${pct(x)}</td>`).join('');
     return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(o.b[k])}</td><td>${lrmOk(k) ? fmt(o.l[k]) : '–'}</td><td>${fmt(o.s[k])}</td><td>${fmt(o.d[k])}</td>${cells}</tr>`;
   };
-  const head = `<thead><tr><th>Channel</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>MS → MD</th><th>BQL → MS</th><th>BQL → MD</th></tr></thead>`;
+  const head = `<thead><tr><th>Channel</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>BQL → MS</th><th>MS → MD</th><th>BQL → MD</th></tr></thead>`;
   const body = D.channels.map((_, k) => line(city, k, false, '')).join('') + line(city, nCh, false, 'pan');
   const name = isPanView ? 'PAN (all cities)' : D.cities[+S.city];
   const cr = rates(city, nCh);
   // PAN view: rank channels on their own BQL -> MD; city view: gap vs the same channel at PAN
   const weak = D.channels.map((ch, k) => [ch, isPanView ? rates(city, k)[4] : rates(city, k)[4] - rates(pan, k)[4], rates(city, k)[4]]).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
-  $('funnelBody').innerHTML = `<div class="read"><p><b>${name}</b> · ${bandLbl(S.band2)} · ${teamLbl()} MS / MD · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL → MS ${pct(cr[3])}; MS → MD ${pct(cr[2])}; BQL → MD <b>${pct(cr[4])}</b>${isPanView ? '' : ` (PAN ${pct(rates(pan, nCh)[4])})`}.</p>` +
+  $('funnelBody').innerHTML = `<div class="read"><p><b>${name}</b> · ${bandLbl(S.band2)} · ${teamLbl()} MS / MD · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL → MS ${pct(cr[2])}; MS → MD ${pct(cr[3])}; BQL → MD <b>${pct(cr[4])}</b>${isPanView ? '' : ` (PAN ${pct(rates(pan, nCh)[4])})`}.</p>` +
     (weak.length ? (isPanView ? `<p>Lowest BQL → MD by channel: ${weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`).join(', ')}.</p>`
       : `<p>Furthest below PAN on BQL → MD: ${weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])} (${(x[1] * 100).toFixed(1)}pp)`).join(', ')}.</p>`) : '') +
     `</div><div class="tw"><table>${head}<tbody>${body}</tbody></table></div>`;
@@ -581,7 +581,7 @@ function renderOverview(R, I) {
   const f = I.funnel;
   $('att').innerHTML = [
     card('Lead sufficiency & SC utilisation', 'suff', `<p>MS at <b>${pct(s.pan.u)}</b> of capacity; MD / SC <b>${f1(s.pan.mdsc)}</b> vs target ${f1(s.tgt)}; capacity utilisation <b>${pct(s.pan.a)}</b> (PAN).</p><p>Below 80% of capacity: ${list(s.short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.u)))}.</p><p>Lowest capacity utilisation: ${list(s.under.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.a)))}.</p>`),
-    card('Lead utilisation × Channel', 'funnel', `<p>${f.city}: BQL → MD <b>${pct(f.cr[4])}</b>${f.isPan ? '' : ` vs PAN ${pct(f.pr[4])}`}; BQL → MS ${pct(f.cr[3])}; MS → MD ${pct(f.cr[2])}.</p><p>${f.isPan ? 'Lowest BQL → MD by channel' : 'Furthest below PAN'}: ${list(f.weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`))}.</p>`),  ].join('');
+    card('Lead utilisation × Channel', 'funnel', `<p>${f.city}: BQL → MD <b>${pct(f.cr[4])}</b>${f.isPan ? '' : ` vs PAN ${pct(f.pr[4])}`}; BQL → MS ${pct(f.cr[2])}; MS → MD ${pct(f.cr[3])}.</p><p>${f.isPan ? 'Lowest BQL → MD by channel' : 'Furthest below PAN'}: ${list(f.weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`))}.</p>`),  ].join('');
   document.querySelectorAll('[data-go]').forEach(a => a.onclick = () => { showTab(a.dataset.go); window.scrollTo({top: 0}); });
 }
 </script>
