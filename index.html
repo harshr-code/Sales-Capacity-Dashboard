@@ -164,8 +164,8 @@ tbody tr.click:hover td{background:var(--head)}
 <!-- LEAD UTILISATION -->
 <div class="tab" id="t-lu">
   <section>
-    <h2>Lead utilisation — month on month</h2>
-    <p class="def">Effort view by month: BQL on BQL date, MS on meeting slot date, MD on meeting done date. City and sales channel from the top filter (sales channel applies to MS / MD only). The date range does not apply here; the current month runs to the as-of date, and the LMTD column shows the previous month for the same days.</p>
+    <h2>Lead utilisation — month on month (effort basis)</h2>
+    <p class="def"><b>Effort basis:</b> each metric is counted in the month it happened — not by the month the lead was BQL'd. Months in columns, metrics in rows: BQL on BQL date, MS on meeting slot date, MD on meeting done date. City and sales channel from the top filter (sales channel applies to MS / MD only). The date range does not apply here; the current month runs to the as-of date, and the LMTD column shows the previous month for the same days.</p>
     <div class="sf"><label>Channel<select id="fLuCh"></select></label><label>Sub-channel<select id="fLuSub"></select></label><label>Lead score band<select id="fLuBand"></select></label></div>
     <div class="read" id="rLu"></div>
     <div class="tw"><table id="tLu"></table></div>
@@ -508,7 +508,7 @@ function renderLU(ids, I) {
   const show = lm ? [...cols.slice(0, -1), lm, cols[cols.length - 1]] : cols;
   const rowsDef = [['BQL', x => fmt(x.b)], ['MS', x => fmt(x.s)], ['MD', x => fmt(x.d)],
     ['BQL → MS %', x => pct(x.s / x.b)], ['MS → MD %', x => pct(x.d / x.s)], ['BQL → MD %', x => pct(x.d / x.b)]];
-  $('tLu').innerHTML = `<thead><tr><th>Metric</th>${show.map(x => `<th${x === lm ? ' class="lo"' : ''}>${x.lbl}</th>`).join('')}</tr></thead><tbody>` +
+  $('tLu').innerHTML = `<thead><tr><th>Metric (effort basis) ↓ · Month →</th>${show.map(x => `<th${x === lm ? ' class="lo"' : ''}>${x.lbl}</th>`).join('')}</tr></thead><tbody>` +
     rowsDef.map(([n, f], i) => `<tr${i === 3 ? ' style="border-top:2px solid var(--line)"' : ''}><td>${n}</td>${show.map(x => `<td>${f(x)}</td>`).join('')}</tr>`).join('') + '</tbody>';
   const cur = cols[cols.length - 1], chg = (a, b) => b ? ((a / b - 1) * 100).toFixed(1) + '%' : '–';
   const sc = [S.city === 'ALL' ? 'PAN' : D.cities[+S.city], S.luSub !== 'ALL' ? D.subs[S.luSub] : S.luCh !== 'ALL' ? D.channels[S.luCh] : 'all channels', S.luBand === 'ALL' ? 'all lead scores' : D.bands[S.luBand]].join(' · ');
