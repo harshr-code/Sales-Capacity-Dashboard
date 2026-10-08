@@ -97,6 +97,7 @@ tbody tr.click:hover td{background:var(--head)}
     <button data-t="overview">Overview</button>
     <button data-t="suff">Lead sufficiency &amp; SC utilisation</button>
     <button data-t="funnel">Funnel × LQI × Channel</button>
+    <button data-t="fcity">Funnel × LQI × City</button>
     <button data-t="lu">Lead utilisation</button>
     <button data-t="subch">Sub-channels</button>
     <button data-t="cohort">BQL cohort</button>
@@ -146,6 +147,17 @@ tbody tr.click:hover td{background:var(--head)}
     <div class="sf"><label>Lead score band<select id="f2Band"></select></label></div>
     <div id="funnelBody"></div>
     <div class="note"><b>LS LRM is shown for Digital only.</b> Referral, BTL, SolarPro and Others leads reach LRM without bill qualification, so their LS LRM is not comparable to BQL.</div>
+  </section>
+</div>
+
+<!-- FUNNEL x LQI x CITY -->
+<div class="tab" id="t-fcity">
+  <section>
+    <h2>Funnel × LQI × City</h2>
+    <p class="def">Funnel by city for the selected channel, sub-channel and lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. LS LRM is shown only when the channel is Digital. Conversion cells are coloured against PAN: green ≥ 5pp above, red ≥ 5pp below; grey italic = base under 20. Selecting a city in the top filter shows that city next to PAN.</p>
+    <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><label>Lead score band<select id="fFcBand"></select></label></div>
+    <div class="read" id="rFc"></div>
+    <div class="tw"><table id="tFc"></table></div>
   </section>
 </div>
 
@@ -237,7 +249,7 @@ tbody tr.click:hover td{background:var(--head)}
 <script>
 let D, DI = {}, OTH;
 const S = {city:'ALL', from:null, to:null, perDay:2, dpw:6, team:'0', tab:'overview',
-  ch1:'ALL', sub1:'ALL', band2:'ALL', luCh:'ALL', luSub:'ALL', luBand:'ALL', open5:null, band5:'ALL', m5:'r',
+  ch1:'ALL', sub1:'ALL', band2:'ALL', fcCh:'ALL', fcSub:'ALL', fcBand:'ALL', luCh:'ALL', luSub:'ALL', luBand:'ALL', open5:null, band5:'ALL', m5:'r',
   band3:'ALL', ch3:'ALL', ch0:'ALL', m0c:'2', v0c:'p'};
 const $ = id => document.getElementById(id);
 const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
@@ -291,9 +303,9 @@ function init(d) {
   opts($('fCity'), D.cities.map((c, i) => [i, c]), 'All cities (PAN)');
   opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
   const chOpts = D.channels.map((c, i) => [i, c]), bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
-  ['f0Ch', 'f1Ch', 'f3Ch', 'fLuCh'].forEach(id => opts($(id), chOpts, 'All channels'));
-  ['f2Band', 'f3Band', 'f5Band', 'fLuBand'].forEach(id => opts($(id), bandOpts, 'All'));
-  subOpts($('f1Sub'), 'ALL'); subOpts($('fLuSub'), 'ALL');
+  ['f0Ch', 'f1Ch', 'f3Ch', 'fLuCh', 'fFcCh'].forEach(id => opts($(id), chOpts, 'All channels'));
+  ['f2Band', 'f3Band', 'f5Band', 'fLuBand', 'fFcBand'].forEach(id => opts($(id), bandOpts, 'All'));
+  subOpts($('f1Sub'), 'ALL'); subOpts($('fLuSub'), 'ALL'); subOpts($('fFcSub'), 'ALL');
   ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = D.dates[D.dates.length - 1]; });
   setMonth(D.asOf.slice(0, 7));
   const on = (id, f) => $(id).addEventListener(id === 'fPerDay' || id === 'fDpw' ? 'input' : 'change', e => { f(e.target.value); render(); });
@@ -307,6 +319,8 @@ function init(d) {
   on('f1Ch', v => { S.ch1 = v; S.sub1 = 'ALL'; subOpts($('f1Sub'), v); $('f1Sub').value = 'ALL'; });
   on('f1Sub', v => S.sub1 = v);
   on('f2Band', v => S.band2 = v);
+  on('fFcCh', v => { S.fcCh = v; S.fcSub = 'ALL'; subOpts($('fFcSub'), v); $('fFcSub').value = 'ALL'; });
+  on('fFcSub', v => S.fcSub = v); on('fFcBand', v => S.fcBand = v);
   on('fLuCh', v => { S.luCh = v; S.luSub = 'ALL'; subOpts($('fLuSub'), v); $('fLuSub').value = 'ALL'; });
   on('fLuSub', v => S.luSub = v); on('fLuBand', v => S.luBand = v);
   on('f5Band', v => S.band5 = v); on('f5M', v => S.m5 = v);
@@ -367,6 +381,7 @@ function render() {
   const I = {};
   renderSuff(R, ids, all, I);
   renderFunnel(R, I);
+  renderFunnelCity(R);
   renderLU(ids, I);
   renderSub(R, ids);
   renderCohort(ids);
@@ -434,6 +449,45 @@ function renderFunnel(R, I) {
   $('funnelBody').innerHTML = `<div class="read"><p><b>${D.cities[c0]}</b> · ${S.band2 === 'ALL' ? 'all lead scores' : D.bands[S.band2]} · ${teamLbl()} MS / MD · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL → MD <b>${pct(cr[3])}</b> (PAN ${pct(rates(pan, nCh)[3])}); MS → MD ${pct(cr[2])}.</p>` +
     (weak.length ? `<p>Furthest below PAN on BQL → MD: ${weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])} (${(x[1] * 100).toFixed(1)}pp)`).join(', ')}.</p>` : '') + `</div><div class="tw"><table>${head}<tbody>${body}</tbody></table></div>`;
   I.funnel = {city: D.cities[c0], cr, pr: rates(pan, nCh), weak};
+}
+
+// ---------- Funnel x LQI x City: stages in rows, cities in columns ----------
+function renderFunnelCity(R) {
+  const nC = D.cities.length;
+  const ok = (ch, sb, b) => (S.fcCh === 'ALL' || ch == S.fcCh) && (S.fcSub === 'ALL' || sb == S.fcSub) && bandOk(b, S.fcBand);
+  const lrmOn = S.fcCh === '0';   // LS LRM for Digital only
+  const z = () => new Array(nC).fill(0);
+  const B = z(), L = z(), M = z(), Dn = z();
+  for (const [d, c, ch, sb, b, v, l] of D.bql) if (d >= R.fi && d <= R.effTo && ok(ch, sb, b)) { B[c] += v; L[c] += l; }
+  for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) if (d >= R.fi && d <= R.effTo && teamOk(t) && ok(ch, sb, b)) { M[c] += ms; Dn[c] += md; }
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  const pan = {b: sum(B), l: sum(L), s: sum(M), d: sum(Dn)};
+  const cols = [{n: 'PAN', o: pan, pan: true}].concat(
+    (S.city === 'ALL' ? D.cities.map((_, i) => i) : [+S.city]).map(c => ({n: D.cities[c], c, o: {b: B[c], l: L[c], s: M[c], d: Dn[c]}})));
+  const rows = [
+    ['BQL', o => fmt(o.b)],
+    ['LS LRM', o => lrmOn ? fmt(o.l) : '–'],
+    ['MS', o => fmt(o.s)],
+    ['MD', o => fmt(o.d)],
+    ['BQL → LS LRM', null, o => lrmOn ? [o.l / o.b, o.b] : [NaN, 0]],
+    ['LS LRM → MS', null, o => lrmOn ? [o.s / o.l, o.l] : [NaN, 0]],
+    ['MS → MD', null, o => [o.d / o.s, o.s]],
+    ['BQL → MD', null, o => [o.d / o.b, o.b]],
+  ];
+  const cell = (row, col) => {
+    if (row[1]) return `<td${col.pan ? ' style="font-weight:650"' : ''}>${row[1](col.o)}</td>`;
+    const [r, base] = row[2](col.o), [pr] = row[2](pan);
+    if (col.pan) return `<td style="font-weight:650">${pct(r)}</td>`;
+    if (!isFinite(r)) return '<td class="lo">–</td>';
+    if (base < 20) return `<td class="lo">${pct(r)}</td>`;
+    return `<td class="${toneVs(r, pr)}">${pct(r)}</td>`;
+  };
+  $('tFc').innerHTML = `<thead><tr><th>Stage</th>${cols.map(c => `<th${c.c === OTH ? ' class="lo"' : ''}>${c.n}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map((row, i) => `<tr${i === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td>${row[0]}</td>${cols.map(c => cell(row, c)).join('')}</tr>`).join('') + '</tbody>';
+  const scope = [S.fcSub !== 'ALL' ? D.subs[S.fcSub] : S.fcCh !== 'ALL' ? D.channels[S.fcCh] : 'all channels', S.fcBand === 'ALL' ? 'all lead scores' : D.bands[S.fcBand], teamLbl() + ' MS / MD'].join(' · ');
+  const ranked = D.cities.map((n, c) => ({n, c, r: Dn[c] / B[c]})).filter(x => x.c !== OTH && B[x.c] >= 20 && isFinite(x.r)).sort((a, b) => a.r - b.r);
+  $('rFc').innerHTML = `<p>${scope} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: PAN BQL → MD <b>${pct(pan.d / pan.b)}</b>, MS → MD ${pct(pan.d / pan.s)}${lrmOn ? `, BQL → LS LRM ${pct(pan.l / pan.b)}` : ''}.</p>` +
+    (S.city === 'ALL' && ranked.length ? `<p>Lowest BQL → MD: ${ranked.slice(0, 4).map(x => x.n + ' ' + pct(x.r)).join(', ')}. Highest: ${ranked.slice(-3).reverse().map(x => x.n + ' ' + pct(x.r)).join(', ')}.</p>` : '');
 }
 
 // ---------- Lead utilisation: months in columns (effort view) ----------
