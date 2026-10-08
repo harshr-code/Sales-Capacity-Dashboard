@@ -154,7 +154,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-fcity">
   <section>
     <h2>Funnel × LQI × City</h2>
-    <p class="def">Funnel by city for the selected channel, sub-channel and lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. With Digital (or a Digital sub-channel) selected, the funnel includes LS LRM; for other channels it runs BQL → MS → MD. Conversion cells are coloured against PAN: green ≥ 5pp above, red ≥ 5pp below; grey italic = base under 20. Selecting a city in the top filter shows that city next to PAN.</p>
+    <p class="def">Funnel by city for the selected channel, sub-channel and lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. With Digital (or a Digital sub-channel) selected, the funnel includes LS LRM; for any other selection it shows BQL, MS, MD, BQL → MS and MS → MD. Conversion cells are coloured against PAN: green ≥ 5pp above, red ≥ 5pp below; grey italic = base under 20. Selecting a city in the top filter shows that city next to PAN.</p>
     <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><label>Lead score band<select id="fFcBand"></select></label></div>
     <div class="read" id="rFc"></div>
     <div class="tw"><table id="tFc"></table></div>
@@ -467,8 +467,9 @@ function renderFunnelCity(R) {
     (S.city === 'ALL' ? D.cities.map((_, i) => i) : [+S.city]).map(c => ({n: D.cities[c], c, o: {b: B[c], l: L[c], s: M[c], d: Dn[c]}})));
   // Digital: full funnel incl. LS LRM; any other selection: LS LRM columns are dropped
   const cnt = lrmOn ? [o => fmt(o.b), o => fmt(o.l), o => fmt(o.s), o => fmt(o.d)] : [o => fmt(o.b), o => fmt(o.s), o => fmt(o.d)];
-  const rts = (lrmOn ? [o => [o.l / o.b, o.b], o => [o.s / o.l, o.l]] : [o => [o.s / o.b, o.b]]).concat([o => [o.d / o.s, o.s], o => [o.d / o.b, o.b]]);
-  const hdr = lrmOn ? ['BQL', 'LS LRM', 'MS', 'MD', 'BQL → LS LRM', 'LS LRM → MS', 'MS → MD', 'BQL → MD'] : ['BQL', 'MS', 'MD', 'BQL → MS', 'MS → MD', 'BQL → MD'];
+  const rts = lrmOn ? [o => [o.l / o.b, o.b], o => [o.s / o.l, o.l], o => [o.d / o.s, o.s], o => [o.d / o.b, o.b]]
+    : [o => [o.s / o.b, o.b], o => [o.d / o.s, o.s]];
+  const hdr = lrmOn ? ['BQL', 'LS LRM', 'MS', 'MD', 'BQL → LS LRM', 'LS LRM → MS', 'MS → MD', 'BQL → MD'] : ['BQL', 'MS', 'MD', 'BQL → MS', 'MS → MD'];
   const nCnt = cnt.length;
   const rcell = (f, ln, j) => {
     const [r, base] = f(ln.o), [pr] = f(pan), sep = j === 0 ? 'sep ' : '';
@@ -479,9 +480,13 @@ function renderFunnelCity(R) {
   $('tFc').innerHTML = `<thead><tr><th>City</th>${hdr.map((h, i) => `<th${i === nCnt ? ' class="sep"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>` +
     lines.map(ln => `<tr class="${ln.pan ? 'pan' : rowCls(ln.c)}"${dc(ln.c)}><td>${ln.n}</td>${cnt.map(f => `<td>${f(ln.o)}</td>`).join('')}${rts.map((f, j) => rcell(f, ln, j)).join('')}</tr>`).join('') + '</tbody>';
   const scope = [S.fcSub !== 'ALL' ? D.subs[S.fcSub] : S.fcCh !== 'ALL' ? D.channels[S.fcCh] : 'all channels', S.fcBand === 'ALL' ? 'all lead scores' : D.bands[S.fcBand], teamLbl() + ' MS / MD'].join(' · ');
-  const ranked = D.cities.map((n, c) => ({n, c, r: Dn[c] / B[c]})).filter(x => x.c !== OTH && B[x.c] >= 20 && isFinite(x.r)).sort((a, b) => a.r - b.r);
-  $('rFc').innerHTML = `<p>${scope} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: PAN BQL → MD <b>${pct(pan.d / pan.b)}</b>, MS → MD ${pct(pan.d / pan.s)}${lrmOn ? `, BQL → LS LRM ${pct(pan.l / pan.b)}` : ''}.</p>` +
-    (S.city === 'ALL' && ranked.length ? `<p>Lowest BQL → MD: ${ranked.slice(0, 4).map(x => x.n + ' ' + pct(x.r)).join(', ')}. Highest: ${ranked.slice(-3).reverse().map(x => x.n + ' ' + pct(x.r)).join(', ')}.</p>` : '');
+  // summary uses only the rates shown: Digital ranks on BQL -> MD, other selections on BQL -> MS
+  const keyLbl = lrmOn ? 'BQL → MD' : 'BQL → MS', keyV = c => (lrmOn ? Dn[c] : M[c]) / B[c];
+  const ranked = D.cities.map((n, c) => ({n, c, r: keyV(c)})).filter(x => x.c !== OTH && B[x.c] >= 20 && isFinite(x.r)).sort((a, b) => a.r - b.r);
+  const head = lrmOn ? `BQL → LS LRM ${pct(pan.l / pan.b)}, LS LRM → MS ${pct(pan.s / pan.l)}, MS → MD ${pct(pan.d / pan.s)}, BQL → MD <b>${pct(pan.d / pan.b)}</b>`
+    : `BQL → MS <b>${pct(pan.s / pan.b)}</b>, MS → MD ${pct(pan.d / pan.s)}`;
+  $('rFc').innerHTML = `<p>${scope} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: PAN ${head}.</p>` +
+    (S.city === 'ALL' && ranked.length ? `<p>Lowest ${keyLbl}: ${ranked.slice(0, 4).map(x => x.n + ' ' + pct(x.r)).join(', ')}. Highest: ${ranked.slice(-3).reverse().map(x => x.n + ' ' + pct(x.r)).join(', ')}.</p>` : '');
 }
 
 // ---------- Lead utilisation: months in columns (effort view) ----------
