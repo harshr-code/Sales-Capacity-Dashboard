@@ -31,12 +31,21 @@ nav.tabs button.on{color:#fff;border-bottom-color:#ffcf4a;font-weight:600}
 .bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end}
 .bar .grp{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end}
 .bar .lev{padding-left:14px;border-left:1px solid var(--line)}
-label{display:flex;flex-direction:column;font-size:11px;color:var(--mute);gap:3px;text-transform:uppercase;letter-spacing:.03em}
+label,.lbl{display:flex;flex-direction:column;font-size:11px;color:var(--mute);gap:3px;text-transform:uppercase;letter-spacing:.03em}
 select,input{font:inherit;font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 7px;min-height:32px;max-width:220px}
 input[type=number]{width:70px}
 .lever{background:var(--lev);color:var(--levink);font-weight:600}
 .ro{min-height:32px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:600}
 .ro small{font-weight:400;color:var(--mute)}
+details.ms{position:relative;text-transform:none;letter-spacing:0}
+details.ms summary{list-style:none;cursor:pointer;font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 28px 5px 9px;min-height:32px;min-width:150px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;position:relative}
+details.ms summary::-webkit-details-marker{display:none}
+details.ms summary::after{content:"▾";position:absolute;right:9px;color:var(--mute)}
+.ms-panel{position:absolute;z-index:20;top:36px;left:0;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;min-width:200px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.ms-opt{flex-direction:row;align-items:center;gap:8px;font-size:13px;color:var(--ink);padding:5px 6px;border-radius:4px;cursor:pointer;text-transform:none;letter-spacing:0}
+.ms-opt:hover{background:var(--head)}
+.ms-act{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:4px;padding:6px 6px 2px;font-size:12px}
+.ms-act a{color:var(--brand2);cursor:pointer}
 .tab{display:none}.tab.on{display:block}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:16px 0}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;border-top:3px solid var(--line)}
@@ -142,7 +151,7 @@ tbody tr.click:hover td{background:var(--head)}
   <section>
     <h2>Lead utilisation × Channel</h2>
     <p class="def">Channel-wise funnel for the city selected in the top filter (or PAN when All cities is selected), for the selected lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). LS LRM = leads sent to LRM (BQL tab, lead_delivered_to_lrm), Digital only. BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. Conversion cells are coloured against the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below.</p>
-    <div class="sf"><label>Lead score band<select id="f2Band"></select></label></div>
+    <div class="sf"><div class="lbl">Lead score band<details class="ms" id="f2Band" data-key="band2"></details></div></div>
     <div id="funnelBody"></div>
     <div class="note"><b>LS LRM is shown for Digital only.</b> Referral, BTL, SolarPro and Others leads reach LRM without bill qualification, so their LS LRM is not comparable to BQL.</div>
   </section>
@@ -153,7 +162,7 @@ tbody tr.click:hover td{background:var(--head)}
   <section>
     <h2>Lead utilisation × City</h2>
     <p class="def">Funnel by city for the selected channel, sub-channel and lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. With Digital (or a Digital sub-channel) selected, the funnel includes LS LRM; for any other selection it shows BQL, MS, MD, BQL → MS, MS → MD and BQL → MD. Conversion cells are coloured against PAN: green ≥ 5pp above, red ≥ 5pp below; grey italic = base under 20. Selecting a city in the top filter shows that city next to PAN.</p>
-    <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><label>Lead score band<select id="fFcBand"></select></label></div>
+    <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><div class="lbl">Lead score band<details class="ms" id="fFcBand" data-key="fcBand"></details></div></div>
     <div class="read" id="rFc"></div>
     <div class="tw"><table id="tFc"></table></div>
   </section>
@@ -166,7 +175,7 @@ tbody tr.click:hover td{background:var(--head)}
     <h2>Lead utilisation — BQL → MS cohort by lead score band</h2>
     <p class="def">Each row is a BQL month. MS columns show meetings for that month's BQL leads, by the month the meeting happened (M0 = same month, M1 = next month…). City filter applies; date range does not.</p>
     <div class="banner">MS cohort pending — needs a lead-level BQL tab (one row per BQL lead, with Lead_ID) to join to the MS to MD tab. BQL column is live; MS cells fill in once that feed is added.</div>
-    <div class="sf"><label>Lead score band<select id="f3Band"></select></label><label>Channel<select id="f3Ch"></select></label></div>
+    <div class="sf"><div class="lbl">Lead score band<details class="ms" id="f3Band" data-key="band3"></details></div><label>Channel<select id="f3Ch"></select></label></div>
     <div class="tw"><table id="t3"></table></div>
   </section>
 </div>
@@ -222,8 +231,8 @@ tbody tr.click:hover td{background:var(--head)}
 <script>
 let D, DI = {}, OTH;
 const S = {city:'ALL', from:null, to:null, perDay:2, team:'0', tab:'overview',
-  ch1:'ALL', sub1:'ALL', sort1:'u', band2:'ALL', fcCh:'ALL', fcSub:'ALL', fcBand:'ALL',
-  band3:'ALL', ch3:'ALL', ch0:'ALL', m0c:'2', v0c:'p'};
+  ch1:'ALL', sub1:'ALL', sort1:'u', band2:null, fcCh:'ALL', fcSub:'ALL', fcBand:null,
+  band3:null, ch3:'ALL', ch0:'ALL', m0c:'2', v0c:'p'};
 const $ = id => document.getElementById(id);
 const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
 const f1 = n => (n == null || !isFinite(n)) ? '–' : n.toFixed(1);
@@ -236,7 +245,21 @@ const dLbl = k => +k.slice(8) + ' ' + MON[+k.slice(5, 7) - 1];
 const teamOk = t => S.team === 'ALL' || t == S.team;
 const teamLbl = () => ({'0': 'Field', '1': 'Inside', 'ALL': 'Field + Inside'})[S.team];
 const sortV = (x, y) => (isFinite(x) ? x : 9) - (isFinite(y) ? y : 9);
-const bandOk = (b, sel) => sel === 'ALL' || b == sel;
+// lead score band filters are multi-select: a Set of band indexes (all bands incl. No score = All)
+const bandOk = (b, sel) => sel.has(b);
+const allBands = sel => sel.size === D.bands.length;
+const bandLbl = sel => allBands(sel) ? 'all lead scores' : [...sel].sort().map(i => D.bands[i]).join(' + ') || 'no lead score band';
+function bandMulti(el) {
+  const key = el.dataset.key;
+  S[key] = new Set(D.bands.map((_, i) => i));
+  const sum = () => { const s = S[key]; el.querySelector('summary').textContent = allBands(s) ? 'All' : s.size ? [...s].sort().map(i => D.bands[i].split(' ')[0]).join(', ') : 'None'; };
+  el.innerHTML = `<summary></summary><div class="ms-panel">${D.bands.map((b, i) => `<label class="ms-opt"><input type="checkbox" value="${i}" checked> ${b}</label>`).join('')}<div class="ms-act"><a data-a="all">Select all</a><a data-a="none">Clear</a></div></div>`;
+  const boxes = [...el.querySelectorAll('input')];
+  boxes.forEach(cb => cb.onchange = () => { S[key] = new Set(boxes.filter(x => x.checked).map(x => +x.value)); sum(); render(); });
+  el.querySelectorAll('[data-a]').forEach(a => a.onclick = e => { e.preventDefault(); boxes.forEach(x => x.checked = a.dataset.a === 'all'); S[key] = new Set(boxes.filter(x => x.checked).map(x => +x.value)); sum(); render(); });
+  sum();
+}
+document.addEventListener('click', e => document.querySelectorAll('details.ms[open]').forEach(d => { if (!d.contains(e.target)) d.removeAttribute('open'); }));
 const isMon = k => new Date(k + 'T00:00:00Z').getUTCDay() === 1;
 // today in IST (D-day): the date pickers never go beyond it
 const TODAY = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
@@ -281,7 +304,7 @@ function init(d) {
   opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
   const chOpts = D.channels.map((c, i) => [i, c]), bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
   ['f0Ch', 'f1Ch', 'f3Ch', 'fFcCh'].forEach(id => opts($(id), chOpts, 'All channels'));
-  ['f2Band', 'f3Band', 'fFcBand'].forEach(id => opts($(id), bandOpts, 'All'));
+  document.querySelectorAll('details.ms').forEach(bandMulti);
   subOpts($('f1Sub'), 'ALL'); subOpts($('fFcSub'), 'ALL');
   ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = maxDate(); });
   setMonth(D.asOf.slice(0, 7));
@@ -297,10 +320,9 @@ function init(d) {
   on('f1Ch', v => { S.ch1 = v; S.sub1 = 'ALL'; subOpts($('f1Sub'), v); $('f1Sub').value = 'ALL'; });
   on('f1Sub', v => S.sub1 = v);
   on('f1Sort', v => S.sort1 = v);
-  on('f2Band', v => S.band2 = v);
   on('fFcCh', v => { S.fcCh = v; S.fcSub = 'ALL'; subOpts($('fFcSub'), v); $('fFcSub').value = 'ALL'; });
-  on('fFcSub', v => S.fcSub = v); on('fFcBand', v => S.fcBand = v);
-  on('f3Band', v => S.band3 = v); on('f3Ch', v => S.ch3 = v);
+  on('fFcSub', v => S.fcSub = v);
+  on('f3Ch', v => S.ch3 = v);
   on('f0Ch', v => S.ch0 = v); on('f0cM', v => S.m0c = v); on('f0cV', v => S.v0c = v);
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.t));
   window.addEventListener('hashchange', () => showTab(location.hash.slice(1), true));
@@ -431,7 +453,7 @@ function renderFunnel(R, I) {
   const cr = rates(city, nCh);
   // PAN view: rank channels on their own BQL -> MD; city view: gap vs the same channel at PAN
   const weak = D.channels.map((ch, k) => [ch, isPanView ? rates(city, k)[4] : rates(city, k)[4] - rates(pan, k)[4], rates(city, k)[4]]).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
-  $('funnelBody').innerHTML = `<div class="read"><p><b>${name}</b> · ${S.band2 === 'ALL' ? 'all lead scores' : D.bands[S.band2]} · ${teamLbl()} MS / MD · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL → MS ${pct(cr[3])}; MS → MD ${pct(cr[2])}; BQL → MD <b>${pct(cr[4])}</b>${isPanView ? '' : ` (PAN ${pct(rates(pan, nCh)[4])})`}.</p>` +
+  $('funnelBody').innerHTML = `<div class="read"><p><b>${name}</b> · ${bandLbl(S.band2)} · ${teamLbl()} MS / MD · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL → MS ${pct(cr[3])}; MS → MD ${pct(cr[2])}; BQL → MD <b>${pct(cr[4])}</b>${isPanView ? '' : ` (PAN ${pct(rates(pan, nCh)[4])})`}.</p>` +
     (weak.length ? (isPanView ? `<p>Lowest BQL → MD by channel: ${weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`).join(', ')}.</p>`
       : `<p>Furthest below PAN on BQL → MD: ${weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])} (${(x[1] * 100).toFixed(1)}pp)`).join(', ')}.</p>`) : '') +
     `</div><div class="tw"><table>${head}<tbody>${body}</tbody></table></div>`;
@@ -466,7 +488,7 @@ function renderFunnelCity(R) {
   };
   $('tFc').innerHTML = `<thead><tr><th>City</th>${hdr.map((h, i) => `<th${i === nCnt ? ' class="sep"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>` +
     lines.map(ln => `<tr class="${ln.pan ? 'pan' : rowCls(ln.c)}"${dc(ln.c)}><td>${ln.n}</td>${cnt.map(f => `<td>${f(ln.o)}</td>`).join('')}${rts.map((f, j) => rcell(f, ln, j)).join('')}</tr>`).join('') + '</tbody>';
-  const scope = [S.fcSub !== 'ALL' ? D.subs[S.fcSub] : S.fcCh !== 'ALL' ? D.channels[S.fcCh] : 'all channels', S.fcBand === 'ALL' ? 'all lead scores' : D.bands[S.fcBand], teamLbl() + ' MS / MD'].join(' · ');
+  const scope = [S.fcSub !== 'ALL' ? D.subs[S.fcSub] : S.fcCh !== 'ALL' ? D.channels[S.fcCh] : 'all channels', bandLbl(S.fcBand), teamLbl() + ' MS / MD'].join(' · ');
   // summary uses only the rates shown: Digital ranks on BQL -> MD, other selections on BQL -> MS
   const keyLbl = lrmOn ? 'BQL → MD' : 'BQL → MS', keyV = c => (lrmOn ? Dn[c] : M[c]) / B[c];
   const ranked = D.cities.map((n, c) => ({n, c, r: keyV(c)})).filter(x => x.c !== OTH && B[x.c] >= 20 && isFinite(x.r)).sort((a, b) => a.r - b.r);
