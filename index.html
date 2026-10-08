@@ -18,8 +18,9 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-ap
 .top h1{margin:0;font-size:21px;font-weight:650;letter-spacing:.01em}
 .top .sub{opacity:.8;font-size:12.5px;margin-top:2px}
 .top .row{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
-.hdr-r{display:flex;gap:8px;align-items:center}
+.hdr-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .rbtn{background:#ffcf4a;color:#13315c;border:0;border-radius:20px;padding:5px 14px;font:inherit;font-size:12.5px;font-weight:650;cursor:pointer}
+.rbtn.ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)}
 .rbtn:disabled{opacity:.6;cursor:wait}
 .badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 12px;font-size:12px;white-space:nowrap}
 nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:12px;scrollbar-width:none}
@@ -55,11 +56,13 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font
 th,td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 th{background:var(--head);font-weight:600;font-size:12px;color:var(--mute)}
 th.c{text-align:center}
+th.sep,td.sep{border-left:2px solid var(--line)}
 th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:inherit;z-index:1}
 tr{background:var(--card)}
 tr.pan td{font-weight:650;background:var(--head)}
 tr.oth td{color:var(--mute)}
 tr.grp td{background:var(--na);font-weight:650;color:var(--ink)}
+tr.bench td{color:var(--mute);font-style:italic;border-top:2px solid var(--line)}
 tbody tr.click{cursor:pointer}
 tbody tr.click:hover td{background:var(--head)}
 .g{color:var(--g);background:var(--gbg)!important}
@@ -69,6 +72,8 @@ tbody tr.click:hover td{background:var(--head)}
 .pend{background:repeating-linear-gradient(45deg,var(--na),var(--na) 6px,transparent 6px,transparent 12px);color:var(--mute);text-align:center}
 .fut{color:var(--line)}
 .banner{background:var(--abg);color:var(--a);border-radius:8px;padding:8px 12px;font-size:13px;margin:0 0 10px}
+.empty{text-align:center;padding:36px 16px;color:var(--mute)}
+.empty b{display:block;font-size:16px;color:var(--ink);margin-bottom:4px}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-top:8px}
 .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:var(--c)}
 .att{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
@@ -77,6 +82,7 @@ tbody tr.click:hover td{background:var(--head)}
 .att .card h4 a{font-size:12px;font-weight:500;color:var(--brand2);cursor:pointer;text-decoration:none}
 .att .card p{margin:4px 0;font-size:13px}
 .notes dl{margin:0}.notes dt{font-weight:650;margin-top:12px}.notes dd{margin:3px 0 0;color:var(--mute)}
+.notes a{color:var(--brand2)}
 #err{display:none;color:var(--r);padding:20px}
 .hide{display:none!important}
 </style>
@@ -84,18 +90,17 @@ tbody tr.click:hover td{background:var(--head)}
 <body>
 <div class="top"><div class="in">
   <div class="row">
-    <div><h1>Sales Capacity Dashboard</h1><div class="sub">MOP tracking · Lead sufficiency · SC utilisation · Lead quality</div></div>
-    <div class="hdr-r"><div class="badge" id="asof">Loading…</div><button class="rbtn" id="reload" title="Load the latest published data">↻ Refresh</button></div>
+    <div><h1>Sales Capacity Dashboard</h1><div class="sub">Lead sufficiency · SC utilisation · Funnel · Lead utilisation · MOP</div></div>
+    <div class="hdr-r"><div class="badge" id="asof">Loading…</div><button class="rbtn ghost" id="notesBtn" title="Definitions and notes">ⓘ Notes</button><button class="rbtn" id="reload" title="Load the latest published data">↻ Refresh</button></div>
   </div>
   <nav class="tabs" id="tabs">
     <button data-t="overview">Overview</button>
-    <button data-t="mop">MOP tracking</button>
-    <button data-t="suff">Lead sufficiency</button>
-    <button data-t="util">SC utilisation</button>
-    <button data-t="score">MS → MD by lead score</button>
+    <button data-t="suff">Lead sufficiency &amp; SC utilisation</button>
+    <button data-t="funnel">Funnel × LQI × Channel</button>
+    <button data-t="lu">Lead utilisation</button>
     <button data-t="subch">Sub-channels</button>
     <button data-t="cohort">BQL cohort</button>
-    <button data-t="notes">Notes</button>
+    <button data-t="mop">MOP tracking</button>
   </nav>
 </div></div>
 
@@ -111,8 +116,6 @@ tbody tr.click:hover td{background:var(--head)}
   <div class="grp lev" id="levers">
     <label title="Editable">Meetings / SC / day<input type="number" id="fPerDay" class="lever" min="0.5" max="6" step="0.25" value="2"></label>
     <label title="Editable">Working days / week<input type="number" id="fDpw" class="lever" min="1" max="7" step="1" value="6"></label>
-    <label title="Editable">In-training SCs<select id="fTrain" class="lever"><option value="0">Exclude</option><option value="1">Include</option></select></label>
-    <label title="Editable">Resigned SCs<select id="fRes" class="lever"><option value="0">Exclude</option><option value="1">Include</option></select></label>
   </div>
 </div>
 <div id="err"></div>
@@ -121,6 +124,66 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-overview">
   <div class="tiles" id="tiles"></div>
   <div class="att" id="att"></div>
+</div>
+
+<!-- LEAD SUFFICIENCY & SC UTILISATION -->
+<div class="tab" id="t-suff">
+  <section>
+    <h2>Lead sufficiency &amp; SC utilisation</h2>
+    <p class="def">SC count (Active) = Active + Resigned SCs from the monthly manpower mapping for the selected sales channel (Field Sales: SC / Sr SC; Inside Sales: SC); in-training SCs (under 30 days on the 1st) are not counted. Meeting capacity = SC count × meetings per SC per day × working days elapsed. MS on meeting slot date and MD on meeting done date, within the selected dates up to the as-of date. MD / SC = MD ÷ SC count; target MD / SC = meetings per SC per day × working days elapsed. Channel and sub-channel filters apply to MS and MD; capacity stays at city level.</p>
+    <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label></div>
+    <div class="read" id="r1"></div>
+    <div class="tw"><table id="t1"></table></div>
+    <div class="legend"><span style="--c:var(--g)">≥ 100%</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80% (MS ÷ capacity: lead shortfall · % of target: SCs under-utilised)</span></div>
+  </section>
+</div>
+
+<!-- FUNNEL x LQI x CHANNEL -->
+<div class="tab" id="t-funnel">
+  <section>
+    <h2>Funnel × LQI × Channel</h2>
+    <p class="def">Channel-wise funnel for the city selected in the top filter, for the selected lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). LS LRM = leads sent to LRM (BQL tab, lead_delivered_to_lrm). BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. Conversion cells are coloured against the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below.</p>
+    <div class="sf"><label>Lead score band<select id="f2Band"></select></label></div>
+    <div id="funnelBody"></div>
+    <div class="note"><b>BQL → LS LRM above 100%</b> is expected for Referral, BTL, SolarPro and Others: leads from these channels reach LRM without bill qualification, so LS LRM includes non-BQL leads.</div>
+  </section>
+</div>
+
+<!-- LEAD UTILISATION -->
+<div class="tab" id="t-lu">
+  <section>
+    <h2>Lead utilisation — month on month</h2>
+    <p class="def">Effort view by month: BQL on BQL date, MS on meeting slot date, MD on meeting done date. City and sales channel from the top filter (sales channel applies to MS / MD only). The date range does not apply here; the current month runs to the as-of date, and the LMTD column shows the previous month for the same days.</p>
+    <div class="sf"><label>Channel<select id="fLuCh"></select></label><label>Sub-channel<select id="fLuSub"></select></label><label>Lead score band<select id="fLuBand"></select></label></div>
+    <div class="read" id="rLu"></div>
+    <div class="tw"><table id="tLu"></table></div>
+  </section>
+</div>
+
+<!-- SUB-CHANNELS -->
+<div class="tab" id="t-subch">
+  <section>
+    <h2>Channel and sub-channel view — BQL, MS, MD and MS → MD %</h2>
+    <p class="def">Click a channel to drop down its sub-channels (Col D of the MS to MD and BQL tabs); click again to close. Selected dates and city apply to all columns; sales channel applies to MS / MD only.</p>
+    <div class="sf"><label>Lead score band<select id="f5Band"></select></label></div>
+    <div class="read" id="r5"></div>
+    <div class="tw"><table id="t5"></table></div>
+    <h3 id="h5b">By city</h3>
+    <div class="sf"><label>Show<select id="f5M"><option value="r">MS → MD %</option><option value="s">MS</option><option value="d">MD</option></select></label></div>
+    <div class="tw"><table id="t5b"></table></div>
+    <div class="note"><b>BTL Referral</b> = referral leads sourced by BTL; counted under BTL.</div>
+  </section>
+</div>
+
+<!-- COHORT -->
+<div class="tab" id="t-cohort">
+  <section>
+    <h2>Lead utilisation — BQL → MS cohort by lead score band</h2>
+    <p class="def">Each row is a BQL month. MS columns show meetings for that month's BQL leads, by the month the meeting happened (M0 = same month, M1 = next month…). City filter applies; date range does not.</p>
+    <div class="banner">MS cohort pending — needs a lead-level BQL tab (one row per BQL lead, with Lead_ID) to join to the MS to MD tab. BQL column is live; MS cells fill in once that feed is added.</div>
+    <div class="sf"><label>Lead score band<select id="f3Band"></select></label><label>Channel<select id="f3Ch"></select></label></div>
+    <div class="tw"><table id="t3"></table></div>
+  </section>
 </div>
 
 <!-- MOP -->
@@ -143,94 +206,29 @@ tbody tr.click:hover td{background:var(--head)}
   </section>
 </div>
 
-<!-- LEAD SUFFICIENCY -->
-<div class="tab" id="t-suff">
-  <section>
-    <h2>Lead sufficiency — SC capacity vs meetings scheduled</h2>
-    <p class="def">SCs from the monthly manpower mapping (Field Sales: SC / Sr SC; Inside Sales: SC). Active = 30+ days tenure on the 1st of the month; In training = under 30 days; Resigned = status Resigned in that month's mapping. In-training and Resigned SCs are added to capacity only when set to Include in the filter bar. Capacity = SCs counted × meetings per SC per day × working days. MS on meeting slot date up to the as-of date; later slots shown as booked ahead. Channel / sub-channel filters change MS only — capacity stays at city level.</p>
-    <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label></div>
-    <div class="read" id="r1"></div>
-    <div class="tw"><table id="t1"></table></div>
-    <div class="legend"><span style="--c:var(--g)">MS ≥ 100% of capacity</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80% — lead shortfall</span></div>
-  </section>
-</div>
-
-<!-- SC UTILISATION -->
-<div class="tab" id="t-util">
-  <section>
-    <h2>MS → MD and SC utilisation</h2>
-    <p class="def">Selected sales channel, all lead channels, effort basis (MS on slot date, MD on done date, within the selected dates up to the as-of date). Target MD/SC = meetings per SC per day × working days elapsed. MD/SC = MD by counted SCs ÷ SCs counted. MD is split by who did it — matched on the lead's SC email to that month's manpower mapping.</p>
-    <div class="read" id="r2"></div>
-    <div class="tw"><table id="t2"></table></div>
-    <div class="legend"><span style="--c:var(--g)">MD/SC ≥ target</span><span style="--c:var(--a)">80–100% of target</span><span style="--c:var(--r)">&lt; 80% — SCs under-utilised</span></div>
-    <div class="note"><b>Other SC</b> = MD on leads whose SC email is not in that month's manpower mapping as a Field / Inside SC — TLs, Experience Centre staff, KAMs and ex-employees. <b>No SC</b> = lead has no SC email. Both are part of actual MD totals; they are only excluded from MD per SC.</div>
-  </section>
-</div>
-
-<!-- LEAD SCORE -->
-<div class="tab" id="t-score">
-  <section>
-    <h2>MS → MD % by lead score band — city and channel</h2>
-    <p class="def">MD ÷ MS within the selected dates (effort basis) for the selected lead score band. Cell colour compares each city to the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below. Grey italic = fewer than 20 MS (low base). Hover a cell for MS / MD counts.</p>
-    <div class="sf"><label>Lead score band<select id="f4Band"></select></label></div>
-    <div class="read" id="r4"></div>
-    <div class="tw"><table id="t4"></table></div>
-  </section>
-</div>
-
-<!-- SUB-CHANNELS -->
-<div class="tab" id="t-subch">
-  <section>
-    <h2>Channel and sub-channel view — BQL, MS, MD and MS → MD %</h2>
-    <p class="def">Click a channel to drop down its sub-channels (Col D of the MS to MD and BQL tabs); click again to close. Selected dates and city apply to all columns; sales channel applies to MS / MD only (BQL is before SC assignment).</p>
-    <div class="sf"><label>Lead score band<select id="f5Band"></select></label></div>
-    <div class="read" id="r5"></div>
-    <div class="tw"><table id="t5"></table></div>
-    <h3 id="h5b">By city</h3>
-    <div class="sf"><label>Show<select id="f5M"><option value="r">MS → MD %</option><option value="s">MS</option><option value="d">MD</option></select></label></div>
-    <div class="tw"><table id="t5b"></table></div>
-    <div class="note"><b>BTL Referral</b> = referral leads sourced by BTL; counted under BTL.</div>
-  </section>
-</div>
-
-<!-- COHORT -->
-<div class="tab" id="t-cohort">
-  <section>
-    <h2>Lead utilisation — BQL → MS cohort by lead score band</h2>
-    <p class="def">Each row is a BQL month. MS columns show meetings for that month's BQL leads, by the month the meeting happened (M0 = same month, M1 = next month…). City filter applies; date range does not (cohorts run on full months).</p>
-    <div class="banner">MS cohort pending — needs lead-level BQL data with Lead_ID to join to the MS to MD tab. BQL column is live; MS cells fill in once that feed is added.</div>
-    <div class="sf"><label>Lead score band<select id="f3Band"></select></label><label>Channel<select id="f3Ch"></select></label></div>
-    <div class="tw"><table id="t3"></table></div>
-  </section>
-</div>
-
 <!-- NOTES -->
 <div class="tab" id="t-notes">
   <section class="notes">
     <h2>Notes and definitions</h2>
     <dl>
-      <dt>Data sources and refresh</dt>
-      <dd>MS to MD tab (one row per lead: last meeting scheduled date, last meeting done date, current SC email, Field / Inside Sales, lead score, channel, sub-channel); BQL tab (BQL by day, city, channel, lead score); MOP tab (day-wise MOP by city and channel); monthly manpower mapping (SC list). Refreshed every 2 hours, 08:00–22:00 IST. Numbers run up to the previous day (as-of date); today's meetings show as booked ahead.</dd>
+      <dt>Data sources</dt>
+      <dd>MS to MD tab (one row per lead: last meeting scheduled date, last meeting done date, current SC email, Field / Inside Sales, lead score, channel, sub-channel); BQL tab (BQL and leads sent to LRM by day, city, channel, sub-channel, lead score); MOP tab (day-wise MOP by city and channel); monthly manpower mapping (SC list).</dd>
       <dt>Refresh</dt>
-      <dd>The data pulls from the Google Sheet automatically every 2 hours between 08:00 and 22:00 IST (GitHub may run these a little late). The <b>↻ Refresh</b> button loads the latest pulled data without losing filters. To force a fresh pull from the sheet immediately, the dashboard owner can run it here: <a href="https://github.com/harshr-code/Sales-Capacity-Dashboard/actions/workflows/refresh.yml" target="_blank" rel="noopener">Run refresh</a> → Run workflow (takes ~3 minutes), then press ↻ Refresh.</dd>
-      <dt>Coverage</dt>
+      <dd>The data pulls from the Google Sheet automatically every 2 hours between 08:00 and 22:00 IST (GitHub may run these a little late). Numbers run up to the previous day (as-of date). The <b>↻ Refresh</b> button loads the latest pulled data without losing filters. To force a fresh pull from the sheet immediately, the dashboard owner can run it here: <a href="https://github.com/harshr-code/Sales-Capacity-Dashboard/actions/workflows/refresh.yml" target="_blank" rel="noopener">Run refresh</a> → Run workflow (about 3 minutes), then press ↻ Refresh.</dd>
+      <dt>Cities</dt>
       <dd>All leads in the source are counted. <b>Main cities (24):</b> Delhi, Ghaziabad, Noida, Gurgaon, Faridabad, Ahmedabad, Surat, Bangalore, Hyderabad, Amravati, Nagpur, Aurangabad, Nashik, Pune, Kolhapur, Bhopal, Gwalior, Indore, Jabalpur, Jaipur, Kanpur, Lucknow, Varanasi, Chennai. <b>Other cities</b> = every other city in the source (e.g. Agra, Meerut, Kota, Coimbatore, Jodhpur, Bareilly, Jalgaon, Raipur, Solapur, Vijayawada, Prayagraj, Trichy, Salem, Madurai, Visakhapatnam, Erode) plus blank / invalid city names, so PAN equals the sheet total. MOP comparisons cover the main cities only.</dd>
       <dt>Channels</dt>
-      <dd><b>Digital</b> — Digital sources only (Google, Meta, organic, inbound and other digital sub-sources).<br><b>Referral</b> — referral leads excluding BTL-sourced referrals.<br><b>BTL</b> — BTL activities, including <b>BTL Referral</b>.<br><b>SolarPro</b> — SolarPro partner leads (Lead Model, Sales Model).<br><b>Others</b> — all sources other than Digital, Referral, SolarPro and BTL: Cold Marketing / Discom data, newspaper, Experience Centre, Affiliate, IVR and untagged.<br>Channel and sub-channel are applied the same way in the BQL and MS to MD tabs, so BTL Referral sits under BTL for BQL, MS and MD.</dd>
-      <dt>MS and MD</dt>
-      <dd>Effort basis: MS counted on the meeting slot date, MD on the meeting done date. The source holds the last meeting per lead, so a lead rescheduled more than once counts once, on its latest date. MS → MD % = MD ÷ MS for the same dates.</dd>
-      <dt>SCs</dt>
-      <dd>From the monthly manpower mapping, matched on SC email. Field Sales = Department Field sales, Designation SC / Sr SC; Inside Sales = Department Inside sales, Designation SC. <b>Active</b> = 30+ days tenure on the 1st of the month; <b>In training</b> = under 30 days; <b>Resigned</b> = status Resigned. Each month uses its own mapping.</dd>
-      <dt>Other SC and No SC</dt>
-      <dd><b>Other SC</b> = meetings on leads whose SC email is not in that month's manpower mapping as an SC — TLs, Experience Centre staff, KAMs, ex-employees. <b>No SC</b> = lead with no SC email. Both are included in all MS / MD totals and excluded only from MD per SC.</dd>
-      <dt>Capacity and targets</dt>
-      <dd>Meeting capacity = SCs counted × meetings per SC per day × working days (days × working days per week ÷ 7). Defaults: 2 meetings per day, 6-day week, Active SCs only (In-training and Resigned SCs can be included) — all editable in the filter bar. MD/SC target = meetings per SC per day × working days elapsed.</dd>
-      <dt>Lead score bands</dt>
+      <dd><b>Digital</b> — Digital sources only (Google, Meta, organic, inbound and other digital sub-sources).<br><b>Referral</b> — referral leads excluding BTL-sourced referrals.<br><b>BTL</b> — BTL activities, including <b>BTL Referral</b>.<br><b>SolarPro</b> — SolarPro partner leads (Lead Model, Sales Model).<br><b>Others</b> — all sources other than Digital, Referral, SolarPro and BTL: Cold Marketing / Discom data, newspaper, Experience Centre, Affiliate, IVR and untagged.<br>Channel and sub-channel are applied the same way in the BQL and MS to MD tabs.</dd>
+      <dt>Funnel stages</dt>
+      <dd><b>BQL</b> = SUM(bill_qualified). <b>LS LRM</b> = leads sent to LRM, SUM(lead_delivered_to_lrm), including leads that are not bill-qualified — so BQL → LS LRM can exceed 100% for non-Digital channels. <b>MS</b> = meeting scheduled (slot date), <b>MD</b> = meeting done (done date). Effort basis: each stage is counted on its own date. The source holds the last meeting per lead, so a lead rescheduled more than once counts once, on its latest date.</dd>
+      <dt>SC count and capacity</dt>
+      <dd>From the monthly manpower mapping, matched on SC email. Field Sales = Department Field sales, Designation SC / Sr SC; Inside Sales = Department Inside sales, Designation SC. <b>SC count (Active)</b> = Active + Resigned SCs in that month's mapping; SCs under 30 days' tenure on the 1st of the month (in training) are excluded. Meeting capacity = SC count × meetings per SC per day × working days (days × working days per week ÷ 7); defaults 2 per day and a 6-day week, editable in the filter bar. MD / SC = MD ÷ SC count; MD includes meetings by all owners (SCs, TLs, Experience Centre staff and others) on leads of the selected sales channel.</dd>
+      <dt>Lead score bands (LQI)</dt>
       <dd>Excellent 9–10 · Good 7–9 · Average 5–7 · Poor below 5 (a score of 9 falls in Good, 7 in Average). Leads without a score count under All only.</dd>
       <dt>Colour rules</dt>
-      <dd>vs MOP / capacity / target: green ≥ 100%, amber 80–100%, red &lt; 80%. MS → MD %: green / red when ≥ 5pp above / below the PAN rate for the same channel.</dd>
+      <dd>vs MOP / capacity / target: green ≥ 100%, amber 80–100%, red &lt; 80%. Conversion rates: green / red when ≥ 5pp above / below the PAN rate for the same channel.</dd>
       <dt>Pending</dt>
-      <dd>BQL → MS cohort needs Lead_ID in the BQL tab.</dd>
+      <dd>BQL → MS cohort needs a lead-level BQL tab with Lead_ID.</dd>
     </dl>
   </section>
 </div>
@@ -238,19 +236,22 @@ tbody tr.click:hover td{background:var(--head)}
 
 <script>
 let D, DI = {}, OTH;
-const S = {city:'ALL', from:null, to:null, perDay:2, dpw:6, team:'0', train:false, resig:false, tab:'overview',
-  ch0:'ALL', m0c:'2', v0c:'p', ch1:'ALL', sub1:'ALL', band3:'ALL', ch3:'ALL', band4:'ALL', open5:null, band5:'ALL', m5:'r'};
+const S = {city:'ALL', from:null, to:null, perDay:2, dpw:6, team:'0', tab:'overview',
+  ch1:'ALL', sub1:'ALL', band2:'ALL', luCh:'ALL', luSub:'ALL', luBand:'ALL', open5:null, band5:'ALL', m5:'r',
+  band3:'ALL', ch3:'ALL', ch0:'ALL', m0c:'2', v0c:'p'};
 const $ = id => document.getElementById(id);
 const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
 const f1 = n => (n == null || !isFinite(n)) ? '–' : n.toFixed(1);
 const pct = x => (x == null || !isFinite(x)) ? '–' : (x * 100).toFixed(1) + '%';
 const tone = x => !isFinite(x) ? '' : x >= 1 ? 'g' : x >= 0.8 ? 'a' : 'r';
+const toneVs = (r, ref) => !isFinite(r) || !isFinite(ref) ? '' : r - ref >= 0.05 ? 'g' : r - ref <= -0.05 ? 'r' : '';
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const monLbl = k => MON[+k.slice(5, 7) - 1] + ' ' + k.slice(0, 4);
 const dLbl = k => +k.slice(8) + ' ' + MON[+k.slice(5, 7) - 1];
 const teamOk = t => S.team === 'ALL' || t == S.team;
 const teamLbl = () => ({'0': 'Field', '1': 'Inside', 'ALL': 'Field + Inside'})[S.team];
 const sortV = (x, y) => (isFinite(x) ? x : 9) - (isFinite(y) ? y : 9);
+const bandOk = (b, sel) => sel === 'ALL' || b == sel;
 
 const getData = () => fetch('capacity.json?v=' + Date.now(), {cache: 'no-store'}).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 getData().then(init).catch(e => { $('err').style.display = 'block'; $('err').textContent = 'Could not load data (' + e.message + ').'; });
@@ -260,7 +261,6 @@ function setData(d) {
   D.asOfIdx = DI[D.asOf]; OTH = D.cities.length - 1;
   $('asof').textContent = `Data as of ${dLbl(D.asOf)} ${D.asOf.slice(0, 4)} · refreshed ${D.generated}`;
 }
-// Refresh button: reloads the latest published data, keeps all filters
 async function reload() {
   const b = $('reload'); b.disabled = true; b.textContent = '↻ Refreshing…';
   try {
@@ -273,7 +273,6 @@ async function reload() {
   } catch (e) { b.textContent = '⚠ Failed — retry'; }
   setTimeout(() => { b.disabled = false; b.textContent = '↻ Refresh'; }, 2500);
 }
-
 function opts(sel, list, all) {
   const cur = sel.value;
   sel.innerHTML = (all ? '<option value="ALL">' + all + '</option>' : '') + list.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
@@ -288,15 +287,16 @@ function subOpts(sel, ch) {
 function init(d) {
   setData(d);
   $('reload').onclick = reload;
+  $('notesBtn').onclick = () => { showTab('notes'); window.scrollTo({top: 0}); };
   opts($('fCity'), D.cities.map((c, i) => [i, c]), 'All cities (PAN)');
   opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
   const chOpts = D.channels.map((c, i) => [i, c]), bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
-  ['f0Ch', 'f1Ch', 'f3Ch'].forEach(id => opts($(id), chOpts, 'All channels'));
-  ['f3Band', 'f4Band', 'f5Band'].forEach(id => opts($(id), bandOpts, 'All'));
-  subOpts($('f1Sub'), 'ALL');
+  ['f0Ch', 'f1Ch', 'f3Ch', 'fLuCh'].forEach(id => opts($(id), chOpts, 'All channels'));
+  ['f2Band', 'f3Band', 'f5Band', 'fLuBand'].forEach(id => opts($(id), bandOpts, 'All'));
+  subOpts($('f1Sub'), 'ALL'); subOpts($('fLuSub'), 'ALL');
   ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = D.dates[D.dates.length - 1]; });
   setMonth(D.asOf.slice(0, 7));
-  const on = (id, f) => $(id).addEventListener(id.startsWith('fPer') || id === 'fDpw' ? 'input' : 'change', e => { f(e.target.value); render(); });
+  const on = (id, f) => $(id).addEventListener(id === 'fPerDay' || id === 'fDpw' ? 'input' : 'change', e => { f(e.target.value); render(); });
   on('fCity', v => S.city = v);
   on('fMonth', v => setMonth(v));
   on('fFrom', v => { if (DI[v] != null) S.from = v; });
@@ -304,14 +304,14 @@ function init(d) {
   on('fTeam', v => S.team = v);
   on('fPerDay', v => S.perDay = +v || 0);
   on('fDpw', v => S.dpw = Math.min(7, Math.max(1, +v || 6)));
-  on('fTrain', v => S.train = v === '1');
-  on('fRes', v => S.resig = v === '1');
-  on('f0Ch', v => S.ch0 = v); on('f0cM', v => S.m0c = v); on('f0cV', v => S.v0c = v);
   on('f1Ch', v => { S.ch1 = v; S.sub1 = 'ALL'; subOpts($('f1Sub'), v); $('f1Sub').value = 'ALL'; });
   on('f1Sub', v => S.sub1 = v);
-  on('f3Band', v => S.band3 = v); on('f3Ch', v => S.ch3 = v);
-  on('f4Band', v => S.band4 = v);
+  on('f2Band', v => S.band2 = v);
+  on('fLuCh', v => { S.luCh = v; S.luSub = 'ALL'; subOpts($('fLuSub'), v); $('fLuSub').value = 'ALL'; });
+  on('fLuSub', v => S.luSub = v); on('fLuBand', v => S.luBand = v);
   on('f5Band', v => S.band5 = v); on('f5M', v => S.m5 = v);
+  on('f3Band', v => S.band3 = v); on('f3Ch', v => S.ch3 = v);
+  on('f0Ch', v => S.ch0 = v); on('f0cM', v => S.m0c = v); on('f0cV', v => S.v0c = v);
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.t));
   window.addEventListener('hashchange', () => showTab(location.hash.slice(1), true));
   showTab(location.hash.slice(1) || 'overview', true);
@@ -322,7 +322,7 @@ function showTab(t, noHash) {
   S.tab = t;
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.id === 't-' + t));
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  $('levers').classList.toggle('hide', !['overview', 'suff', 'util'].includes(t));
+  $('levers').classList.toggle('hide', !['overview', 'suff'].includes(t));
   if (!noHash) history.replaceState(null, '', '#' + t);
 }
 function setMonth(m) {
@@ -332,38 +332,28 @@ function setMonth(m) {
 }
 function cityList() { return S.city === 'ALL' ? D.cities.map((_, i) => i) : [+S.city]; }
 const rowCls = c => (S.city === 'ALL' ? 'click' : '') + (c === OTH ? ' oth' : '');
+const dc = c => c != null ? ` data-c="${c}"` : '';
 
-// ---------- core aggregation ----------
+// ---------- core aggregation for the selected dates ----------
 function compute() {
   let fi = DI[S.from], ti = DI[S.to]; if (fi > ti) [fi, ti] = [ti, fi];
   const effTo = Math.min(ti, D.asOfIdx);
-  const nC = D.cities.length, nCh = D.channels.length, nS = D.subs.length;
+  const nC = D.cities.length, nS = D.subs.length;
   const z = n => new Array(n).fill(0);
-  const counted = k => k === 0 || (k === 1 && S.train) || (k === 2 && S.resig);
-  const R = {fi, ti, effTo, ms1: z(nC), booked: z(nC), bookedAll: z(nC), ms2: z(nC), md2: z(nC), mdK: D.cities.map(() => z(5)),
-    m4s: D.cities.map(() => z(nCh)), m4d: D.cities.map(() => z(nCh)),
-    s5s: D.cities.map(() => z(nS)), s5d: D.cities.map(() => z(nS)),
-    scDays: z(nC), scLeftDays: z(nC), cls: D.cities.map(() => z(3))};
+  const R = {fi, ti, effTo, ms1: z(nC), md1: z(nC), msAll: z(nC), mdAll: z(nC),
+    s5s: D.cities.map(() => z(nS)), s5d: D.cities.map(() => z(nS)), scDays: z(nC)};
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) {
-    if (d < fi || d > ti || !teamOk(t)) continue;
-    const past = d <= effTo;
-    if ((S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) { if (past) R.ms1[c] += ms; else R.booked[c] += ms; }
-    if (!past) { R.bookedAll[c] += ms; continue; }
-    R.ms2[c] += ms; R.md2[c] += md; R.mdK[c][k] += md;
-    if (S.band4 === 'ALL' || b == S.band4) { R.m4s[c][ch] += ms; R.m4d[c][ch] += md; }
-    if (S.band5 === 'ALL' || b == S.band5) { R.s5s[c][sb] += ms; R.s5d[c][sb] += md; }
+    if (d < fi || d > effTo || !teamOk(t)) continue;
+    R.msAll[c] += ms; R.mdAll[c] += md;
+    if ((S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) { R.ms1[c] += ms; R.md1[c] += md; }
+    if (bandOk(b, S.band5)) { R.s5s[c][sb] += ms; R.s5d[c][sb] += md; }
   }
-  const pastDays = D.months.map(() => 0), leftDays = D.months.map(() => 0);
-  for (let d = fi; d <= ti; d++) { const mi = D.months.indexOf(D.dates[d].slice(0, 7)); if (d <= effTo) pastDays[mi]++; else leftDays[mi]++; }
+  // SC count = Active + Resigned (class 0 and 2), day-weighted across months in the range
+  const pastDays = D.months.map(() => 0);
+  for (let d = fi; d <= effTo; d++) pastDays[D.months.indexOf(D.dates[d].slice(0, 7))]++;
   R.pastTot = pastDays.reduce((a, b) => a + b, 0);
-  for (const [mi, c, t, k, n] of D.rost) {
-    if (!teamOk(t)) continue;
-    if (counted(k)) { R.scDays[c] += n * pastDays[mi]; R.scLeftDays[c] += n * leftDays[mi]; }
-    if (R.pastTot) R.cls[c][k] += n * pastDays[mi] / R.pastTot;
-    else if (leftDays[mi]) R.cls[c][k] += n * leftDays[mi] / (ti - fi + 1);
-  }
+  for (const [mi, c, t, k, n] of D.rost) if (teamOk(t) && (k === 0 || k === 2)) R.scDays[c] += n * pastDays[mi];
   R.wd = R.pastTot * S.dpw / 7;
-  R.wdLeft = Math.max(0, ti - Math.max(D.asOfIdx, fi - 1)) * S.dpw / 7;
   return R;
 }
 
@@ -371,25 +361,172 @@ function render() {
   if (!D) return;
   $('fFrom').value = S.from; $('fTo').value = S.to;
   const R = compute(), ids = cityList(), all = D.cities.map((_, i) => i);
-  const I = {};   // insights for Overview
-  renderMop(R, ids, I);
-  renderSuffUtil(R, ids, all, I);
-  renderScore(R, ids, all, I);
+  const I = {};
+  renderSuff(R, ids, all, I);
+  renderFunnel(R, I);
+  renderLU(ids, I);
   renderSub(R, ids);
   renderCohort(ids);
+  renderMop(R, ids);
   renderOverview(R, I);
   document.querySelectorAll('tbody tr.click').forEach(tr => tr.onclick = () => { S.city = tr.dataset.c; $('fCity').value = S.city; render(); window.scrollTo({top: 0, behavior: 'smooth'}); });
 }
 
+// ---------- Lead sufficiency & SC utilisation ----------
+function renderSuff(R, ids, all, I) {
+  const rate = S.perDay * S.dpw / 7, tgt = S.perDay * R.wd;
+  const A = cs => {
+    const o = {scDays: 0, ms: 0, md: 0, msAll: 0, mdAll: 0};
+    cs.forEach(c => { o.scDays += R.scDays[c]; o.ms += R.ms1[c]; o.md += R.md1[c]; o.msAll += R.msAll[c]; o.mdAll += R.mdAll[c]; });
+    o.sc = R.pastTot ? o.scDays / R.pastTot : 0;
+    o.cap = o.scDays * rate; o.u = o.ms / o.cap;
+    o.mdsc = o.sc ? o.md / o.sc : NaN; o.a = o.mdsc / tgt; o.conv = o.md / o.ms;
+    return o;
+  };
+  const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${f1(o.mdsc)}</td><td>${f1(tgt)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td></tr>`;
+  const pan = A(all), sel = A(ids);
+  const rows = ids.map(c => ({c, o: A([c])})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || sortV(a.o.u, b.o.u));
+  $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD / SC</th><th>Target MD / SC</th><th>% of target</th><th>Actual MS → MD</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
+  const main = rows.filter(r => r.c !== OTH && r.o.sc >= 3);   // callouts skip cities with under 3 SCs
+  const short = main.filter(r => r.o.u < 0.8), under = main.filter(r => r.o.a < 0.8).sort((a, b) => sortV(a.o.a, b.o.a));
+  const filt = S.sub1 !== 'ALL' ? D.subs[S.sub1] : S.ch1 !== 'ALL' ? D.channels[S.ch1] : '';
+  $('r1').innerHTML = R.pastTot ? `<p>${teamLbl()}${filt ? ' · ' + filt : ''} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: MS at <b>${pct(pan.u)}</b> of capacity; MD / SC <b>${f1(pan.mdsc)}</b> vs target ${f1(tgt)} (${pct(pan.a)}); MS → MD ${pct(pan.conv)}.</p>` +
+    (S.city === 'ALL' ? `<p>Below 80% of capacity (lead shortfall): ${short.slice(0, 6).map(r => D.cities[r.c] + ' ' + pct(r.o.u)).join(', ') || 'none'}. Lowest MD / SC vs target: ${under.slice(0, 5).map(r => D.cities[r.c] + ' ' + f1(r.o.mdsc)).join(', ') || 'none'}.</p>` : '')
+    : '<p>Selected dates are after the as-of date.</p>';
+  I.suff = {pan, sel, tgt, short, under};
+}
+
+// ---------- Funnel x LQI x Channel (one city) ----------
+function renderFunnel(R, I) {
+  const nCh = D.channels.length;
+  if (S.city === 'ALL') {
+    $('funnelBody').innerHTML = '<div class="empty"><b>Select a city in the top filter</b>The channel funnel is built for one city at a time.</div>';
+    I.funnel = null; return;
+  }
+  const c0 = +S.city, z = () => ({b: new Array(nCh).fill(0), l: new Array(nCh).fill(0), s: new Array(nCh).fill(0), d: new Array(nCh).fill(0)});
+  const city = z(), pan = z();
+  for (const [d, c, ch, sb, b, v, l] of D.bql) {
+    if (d < R.fi || d > R.effTo || !bandOk(b, S.band2)) continue;
+    pan.b[ch] += v; pan.l[ch] += l; if (c === c0) { city.b[ch] += v; city.l[ch] += l; }
+  }
+  for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) {
+    if (d < R.fi || d > R.effTo || !teamOk(t) || !bandOk(b, S.band2)) continue;
+    pan.s[ch] += ms; pan.d[ch] += md; if (c === c0) { city.s[ch] += ms; city.d[ch] += md; }
+  }
+  const tot = o => ['b', 'l', 's', 'd'].forEach(k => o[k].push(o[k].reduce((a, v) => a + v, 0)));
+  tot(city); tot(pan);
+  const rates = (o, k) => [o.l[k] / o.b[k], o.s[k] / o.l[k], o.d[k] / o.s[k], o.d[k] / o.b[k]];
+  const names = D.channels.concat('Total');
+  const line = (o, k, isPan, cls) => {
+    const r = rates(o, k), p = rates(pan, k);
+    const cells = r.map((x, j) => `<td class="${j === 0 ? 'sep ' : ''}${isPan ? '' : toneVs(x, p[j])}">${pct(x)}</td>`).join('');
+    return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(o.b[k])}</td><td>${fmt(o.l[k])}</td><td>${fmt(o.s[k])}</td><td>${fmt(o.d[k])}</td>${cells}</tr>`;
+  };
+  const head = `<thead><tr><th>Channel</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>MS → MD</th><th>BQL → MD</th></tr></thead>`;
+  const body = D.channels.map((_, k) => line(city, k, false, '')).join('') + line(city, nCh, false, 'pan') +
+    `<tr class="bench"><td colspan="9">PAN benchmark (all cities)</td></tr>` + D.channels.map((_, k) => line(pan, k, true, 'bench')).join('') + line(pan, nCh, true, 'bench');
+  const cr = rates(city, nCh), weak = D.channels.map((ch, k) => [ch, rates(city, k)[3] - rates(pan, k)[3], rates(city, k)[3]]).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
+  $('funnelBody').innerHTML = `<div class="read"><p><b>${D.cities[c0]}</b> · ${S.band2 === 'ALL' ? 'all lead scores' : D.bands[S.band2]} · ${teamLbl()} MS / MD · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL → MD <b>${pct(cr[3])}</b> (PAN ${pct(rates(pan, nCh)[3])}); MS → MD ${pct(cr[2])}.</p>` +
+    (weak.length ? `<p>Furthest below PAN on BQL → MD: ${weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])} (${(x[1] * 100).toFixed(1)}pp)`).join(', ')}.</p>` : '') + `</div><div class="tw"><table>${head}<tbody>${body}</tbody></table></div>`;
+  I.funnel = {city: D.cities[c0], cr, pr: rates(pan, nCh), weak};
+}
+
+// ---------- Lead utilisation: months in columns (effort view) ----------
+function renderLU(ids, I) {
+  const months = D.months.filter(m => m <= D.asOf.slice(0, 7)), idSet = new Set(ids);
+  const curM = D.asOf.slice(0, 7), asDay = +D.asOf.slice(8);
+  const prevM = months.length > 1 ? months[months.length - 2] : null;
+  const ok = (ch, sb, b) => (S.luCh === 'ALL' || ch == S.luCh) && (S.luSub === 'ALL' || sb == S.luSub) && bandOk(b, S.luBand);
+  const cols = months.map(m => ({m, lbl: monLbl(m) + (m === curM ? ' (MTD)' : ''), b: 0, s: 0, d: 0}));
+  const lm = prevM ? {lbl: `${monLbl(prevM)} 1–${asDay} (LMTD)`, b: 0, s: 0, d: 0} : null;
+  const add = (key, d, v) => {
+    if (d > D.asOfIdx) return;
+    const k = D.dates[d], col = cols.find(x => k.startsWith(x.m)); if (col) col[key] += v;
+    if (lm && k.startsWith(prevM) && +k.slice(8) <= asDay) lm[key] += v;
+  };
+  for (const [d, c, ch, sb, b, v] of D.bql) if (idSet.has(c) && ok(ch, sb, b)) add('b', d, v);
+  for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) if (idSet.has(c) && teamOk(t) && ok(ch, sb, b)) { add('s', d, ms); add('d', d, md); }
+  const show = lm ? [...cols.slice(0, -1), lm, cols[cols.length - 1]] : cols;
+  const rowsDef = [['BQL', x => fmt(x.b)], ['MS', x => fmt(x.s)], ['MD', x => fmt(x.d)],
+    ['BQL → MS %', x => pct(x.s / x.b)], ['MS → MD %', x => pct(x.d / x.s)], ['BQL → MD %', x => pct(x.d / x.b)]];
+  $('tLu').innerHTML = `<thead><tr><th>Metric</th>${show.map(x => `<th${x === lm ? ' class="lo"' : ''}>${x.lbl}</th>`).join('')}</tr></thead><tbody>` +
+    rowsDef.map(([n, f], i) => `<tr${i === 3 ? ' style="border-top:2px solid var(--line)"' : ''}><td>${n}</td>${show.map(x => `<td>${f(x)}</td>`).join('')}</tr>`).join('') + '</tbody>';
+  const cur = cols[cols.length - 1], chg = (a, b) => b ? ((a / b - 1) * 100).toFixed(1) + '%' : '–';
+  const sc = [S.city === 'ALL' ? 'PAN' : D.cities[+S.city], S.luSub !== 'ALL' ? D.subs[S.luSub] : S.luCh !== 'ALL' ? D.channels[S.luCh] : 'all channels', S.luBand === 'ALL' ? 'all lead scores' : D.bands[S.luBand]].join(' · ');
+  $('rLu').innerHTML = lm ? `<p>${sc}: ${monLbl(curM)} MTD vs LMTD — BQL ${chg(cur.b, lm.b)}, MS ${chg(cur.s, lm.s)}, MD ${chg(cur.d, lm.d)}. BQL → MD ${pct(cur.d / cur.b)} vs ${pct(lm.d / lm.b)} LMTD.</p>` : `<p>${sc}.</p>`;
+  I.lu = lm ? {cur, lm, chg, curM} : null;
+}
+
+// ---------- Sub-channels ----------
+function renderSub(R, ids) {
+  const nS = D.subs.length, open = S.open5;
+  const ms = new Array(nS).fill(0), md = new Array(nS).fill(0), bq = new Array(nS).fill(0);
+  ids.forEach(c => { for (let i = 0; i < nS; i++) { ms[i] += R.s5s[c][i]; md[i] += R.s5d[c][i]; } });
+  const idSet = new Set(ids);
+  for (const [d, c, ch, sb, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && idSet.has(c) && bandOk(b, S.band5)) bq[sb] += v;
+  const totMs = ms.reduce((a, b) => a + b, 0), totMd = md.reduce((a, b) => a + b, 0), totBq = bq.reduce((a, b) => a + b, 0);
+  const panR = totMd / totMs;
+  const subsOf = k => D.subs.map((s, i) => i).filter(i => D.subCh[i] === k && (ms[i] || md[i] || bq[i])).sort((a, b) => ms[b] - ms[a] || bq[b] - bq[a]);
+  const cells = (b, s, d) => `<td>${fmt(b)}</td><td>${pct(b / totBq)}</td><td>${fmt(s)}</td><td>${fmt(d)}</td><td class="${s >= 20 ? toneVs(d / s, panR) : 'lo'}">${pct(d / s)}</td><td>${pct(s / totMs)}</td>`;
+  let html = '';
+  D.channels.forEach((ch, k) => {
+    const subs = subsOf(k);
+    const cb = subs.reduce((a, i) => a + bq[i], 0), cs = subs.reduce((a, i) => a + ms[i], 0), cd = subs.reduce((a, i) => a + md[i], 0);
+    html += `<tr class="grp chrow" data-k="${k}" style="cursor:pointer"><td>${open === k ? '▾' : '▸'} ${ch} <span class="lo" style="font-weight:400">(${subs.length})</span></td>${cells(cb, cs, cd)}</tr>`;
+    if (open === k) html += subs.map(i => `<tr><td style="padding-left:28px">${D.subs[i]}</td>${cells(bq[i], ms[i], md[i])}</tr>`).join('');
+  });
+  $('t5').innerHTML = `<thead><tr><th>Channel</th><th>BQL</th><th>Share of BQL</th><th>MS</th><th>MD</th><th>MS → MD %</th><th>Share of MS</th></tr></thead><tbody><tr class="pan"><td>Total</td>${cells(totBq, totMs, totMd)}</tr>${html}</tbody>`;
+  document.querySelectorAll('#t5 tr.chrow').forEach(tr => tr.onclick = () => { const k = +tr.dataset.k; S.open5 = S.open5 === k ? null : k; render(); });
+  const chR = D.channels.map((c, k) => { const s = subsOf(k); const a = s.reduce((x, i) => x + ms[i], 0), b = s.reduce((x, i) => x + md[i], 0); return [c, b / a]; }).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
+  let read = `<p>${teamLbl()} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}. MS → MD by channel: ${chR.map(x => x[0] + ' ' + pct(x[1])).join(' · ')}. Click a channel to see its sub-channels.</p>`;
+  if (open != null) {
+    const rk = subsOf(open).filter(i => ms[i] >= 50).sort((a, b) => md[a] / ms[a] - md[b] / ms[b]);
+    const lbl = i => D.subs[i] + ' ' + pct(md[i] / ms[i]);
+    if (rk.length > 5) read += `<p>${D.channels[open]} — lowest MS → MD (50+ MS): ${rk.slice(0, 3).map(lbl).join(', ')}; highest: ${rk.slice(-2).reverse().map(lbl).join(', ')}.</p>`;
+    else if (rk.length) read += `<p>${D.channels[open]} — MS → MD, low to high (50+ MS): ${rk.map(lbl).join(', ')}.</p>`;
+  }
+  $('r5').innerHTML = read;
+  const cols = open == null ? D.channels.map((c, k) => ({n: c, ix: subsOf(k)})) : subsOf(open).filter(i => ms[i] > 0).slice(0, 8).map(i => ({n: D.subs[i], ix: [i]}));
+  $('h5b').textContent = open == null ? 'By city — channels' : `By city — ${D.channels[open]} sub-channels (top ${cols.length} by MS)`;
+  const sumC = (c, col, X) => col.ix.reduce((a, i) => a + X[c][i], 0);
+  const tot = col => ({s: col.ix.reduce((a, i) => a + ms[i], 0), d: col.ix.reduce((a, i) => a + md[i], 0)});
+  const colR = cols.map(col => { const t = tot(col); return t.d / t.s; });
+  const val = (s, d) => S.m5 === 's' ? fmt(s) : S.m5 === 'd' ? fmt(d) : pct(d / s);
+  const cell = (s, d, j) => {
+    if (!s && !d) return '<td class="lo">–</td>';
+    const t = `MD ${fmt(d)} / MS ${fmt(s)}`;
+    if (S.m5 !== 'r') return `<td title="${t}">${val(s, d)}</td>`;
+    if (s < 20) return `<td class="lo" title="${t}">${pct(d / s)}</td>`;
+    return `<td class="${toneVs(d / s, colR[j])}" title="${t}">${pct(d / s)}</td>`;
+  };
+  const cityRows = ids.map(c => ({c, t: cols.reduce((a, col) => a + sumC(c, col, R.s5s), 0)})).filter(x => x.t > 0).sort((a, b) => (a.c === OTH) - (b.c === OTH) || b.t - a.t);
+  $('t5b').innerHTML = cols.length ? `<thead><tr><th>City</th>${cols.map(col => `<th>${col.n}</th>`).join('')}</tr></thead><tbody><tr class="pan"><td>Total</td>${cols.map(col => { const t = tot(col); return `<td>${val(t.s, t.d)}</td>`; }).join('')}</tr>` +
+    cityRows.map(x => `<tr class="${rowCls(x.c)}"${dc(x.c)}><td>${D.cities[x.c]}</td>${cols.map((col, j) => cell(sumC(x.c, col, R.s5s), sumC(x.c, col, R.s5d), j)).join('')}</tr>`).join('') + '</tbody>' : '';
+}
+
+// ---------- Cohort (pending) ----------
+function renderCohort(ids) {
+  const months = D.months.filter(m => m <= D.asOf.slice(0, 7));
+  const bqlM = {}; months.forEach(m => bqlM[m] = 0);
+  const idSet = new Set(ids);
+  for (const [d, c, ch, sb, b, v] of D.bql) {
+    if (!idSet.has(c) || (S.ch3 !== 'ALL' && ch != S.ch3) || !bandOk(b, S.band3)) continue;
+    const m = D.dates[d].slice(0, 7); if (m in bqlM) bqlM[m] += v;
+  }
+  const L = Math.max(3, months.length);
+  $('t3').innerHTML = `<thead><tr><th>BQL month</th><th>BQL</th>${Array.from({length: L}, (_, i) => `<th>MS M${i}</th>`).join('')}<th>Total MS</th><th>BQL → MS %</th></tr></thead><tbody>` +
+    months.map((m, mi) => `<tr><td>${monLbl(m)}${m === D.asOf.slice(0, 7) ? ' (MTD)' : ''}</td><td>${fmt(bqlM[m])}</td>${Array.from({length: L}, (_, i) => mi + i < months.length ? '<td class="pend">pending</td>' : '<td class="fut"></td>').join('')}<td class="pend">pending</td><td class="pend">pending</td></tr>`).join('') + '</tbody>';
+}
+
 // ---------- MOP ----------
-function renderMop(R, ids, I) {
-  const mm = D.mop && D.mop.month, nC = D.cities.length, nCh = D.channels.length;
+function renderMop(R, ids) {
+  const mm = D.mop && D.mop.month, nCh = D.channels.length;
   const inM = d => D.dates[d].startsWith(mm);
   const days = new Set();
   for (let d = R.fi; d <= R.effTo; d++) if (inM(d)) days.add(+D.dates[d].slice(8));
   if (!mm || !days.size) {
     const msg = `<p>No MOP loaded for the selected dates (MOP available for ${mm ? monLbl(mm) : '—'}).</p>`;
-    $('r0').innerHTML = msg; $('r0c').innerHTML = msg; $('t0b').innerHTML = ''; $('t0c').innerHTML = ''; I.mop = null; return;
+    $('r0').innerHTML = msg; $('r0c').innerHTML = msg; $('t0b').innerHTML = ''; $('t0c').innerHTML = ''; return;
   }
   const mids = ids.filter(c => c !== OTH), mall = D.cities.map((_, i) => i).filter(c => c !== OTH);
   const z = () => [0, 1, 2].map(() => D.cities.map(() => new Array(nCh).fill(0)));
@@ -401,7 +538,7 @@ function renderMop(R, ids, I) {
   const fold = X => X.map(st => st.map(r => r.reduce((a, v, ch) => a + (chOk(ch) ? v : 0), 0)));
   const mtd = fold(mtdC), act = fold(actC);
   const s = (a, cs) => cs.reduce((x, c) => x + a[c], 0);
-  const line = (name, cs, cls, dc) => `<tr class="${cls}"${dc != null ? ` data-c="${dc}"` : ''}><td>${name}</td>${[0, 1, 2].map(i => { const a = s(act[i], cs), m = s(mtd[i], cs); return `<td>${fmt(a)}</td><td>${fmt(m)}</td><td class="${tone(a / m)}">${pct(a / m)}</td>`; }).join('')}</tr>`;
+  const line = (name, cs, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td>${[0, 1, 2].map(i => { const a = s(act[i], cs), m = s(mtd[i], cs); return `<td>${fmt(a)}</td><td>${fmt(m)}</td><td class="${tone(a / m)}">${pct(a / m)}</td>`; }).join('')}</tr>`;
   const rows = mids.map(c => ({c, p: [0, 1, 2].map(i => act[i][c] / mtd[i][c])})).sort((x, y) => sortV(x.p[2], y.p[2]));
   $('t0b').innerHTML = `<thead><tr><th rowspan="2">City</th><th colspan="3" class="c">BQL</th><th colspan="3" class="c">MS</th><th colspan="3" class="c">MD</th></tr><tr>${'<th>Actual</th><th>MOP MTD</th><th>%</th>'.repeat(3)}</tr></thead><tbody>` +
     line('PAN (MOP cities)', mall, 'pan') + rows.map(r => line(D.cities[r.c], [r.c], rowCls(r.c), r.c)).join('') + '</tbody>';
@@ -409,9 +546,6 @@ function renderMop(R, ids, I) {
   const low = rows.filter(r => r.p[2] < 0.8).map(r => D.cities[r.c] + ' ' + pct(r.p[2]));
   $('r0').innerHTML = `<p>${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL <b>${pct(p[0])}</b> · MS <b>${pct(p[1])}</b> · MD <b>${pct(p[2])}</b> of MOP MTD${S.ch0 !== 'ALL' ? ' (' + D.channels[S.ch0] + ')' : ''}.</p>` +
     (S.city === 'ALL' && low.length ? `<p>MD below 80% of MOP MTD: ${low.slice(0, 6).join(', ')}.</p>` : '');
-  I.mop = {p, low, period: `${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}`};
-
-  // city x channel
   const m = +S.m0c, showA = S.v0c === 'a', A = actC[m], M = mtdC[m];
   const cellsFor = cs => {
     const a = new Array(nCh + 1).fill(0), q = new Array(nCh + 1).fill(0);
@@ -423,171 +557,34 @@ function renderMop(R, ids, I) {
     if (!(o.m >= 0.5)) return `<td class="lo" title="${t} (no MOP)">${o.a ? fmt(o.a) + ' / –' : '–'}</td>`;
     return `<td class="${tone(o.r)}" title="${t}">${showA ? fmt(o.a) + ' / ' + fmt(o.m) : pct(o.r)}</td>`;
   };
-  const line2 = (name, cs, cls, dc) => `<tr class="${cls}"${dc != null ? ` data-c="${dc}"` : ''}><td>${name}</td>${cellsFor(cs).map(td).join('')}</tr>`;
+  const line2 = (name, cs, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td>${cellsFor(cs).map(td).join('')}</tr>`;
   const rows2 = mids.map(c => ({c, r: cellsFor([c])[nCh].r})).sort((x, y) => sortV(x.r, y.r));
   $('t0c').innerHTML = `<thead><tr><th>City</th>${D.channels.map(c => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead><tbody>` +
     line2('PAN (MOP cities)', mall, 'pan') + rows2.map(r => line2(D.cities[r.c], [r.c], rowCls(r.c), r.c)).join('') + '</tbody>';
   const pan = cellsFor(mids), lbl = m === 1 ? 'MS' : 'MD';
   const byCh = D.channels.map((c, k) => [c, pan[k].r]).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
   $('r0c').innerHTML = `<p>${lbl} vs MOP by channel: ${byCh.map(x => x[0] + ' ' + pct(x[1])).join(' · ')} · Total <b>${pct(pan[nCh].r)}</b>.</p>`;
-  // MD by channel for Overview (always MD)
-  const mdC = D.channels.map((c, k) => { let a = 0, q = 0; mids.forEach(ci => { a += actC[2][ci][k]; q += mtdC[2][ci][k]; }); return [c, a / q]; }).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
-  I.mopCh = mdC;
-}
-
-// ---------- Lead sufficiency + SC utilisation ----------
-function renderSuffUtil(R, ids, all, I) {
-  const pp = S.perDay, rate = pp * S.dpw / 7, tgt = pp * R.wd, futureOnly = R.fi > D.asOfIdx;
-  const A = cs => {
-    const o = {act: 0, trn: 0, res: 0, scDays: 0, scLeftDays: 0, ms1: 0, booked: 0, bookedAll: 0, ms2: 0, md2: 0, mdK: [0, 0, 0, 0, 0]};
-    cs.forEach(c => { o.act += R.cls[c][0]; o.trn += R.cls[c][1]; o.res += R.cls[c][2]; o.scDays += R.scDays[c]; o.scLeftDays += R.scLeftDays[c];
-      o.ms1 += R.ms1[c]; o.booked += R.booked[c]; o.bookedAll += R.bookedAll[c]; o.ms2 += R.ms2[c]; o.md2 += R.md2[c]; R.mdK[c].forEach((v, k) => o.mdK[k] += v); });
-    o.sc = R.pastTot ? o.scDays / R.pastTot : 0;
-    o.cap = o.scDays * rate; o.capLeft = o.scLeftDays * rate;
-    o.mdC = o.mdK[0] + (S.train ? o.mdK[1] : 0) + (S.resig ? o.mdK[2] : 0);
-    o.mdsc = o.sc ? o.mdC / o.sc : NaN;
-    return o;
-  };
-  const sel = A(ids), pan = A(all), cnt = ['Active', S.train && 'training', S.resig && 'resigned'].filter(Boolean).join(' + ');
-  I.sel = sel; I.tgt = tgt; I.cnt = cnt; I.wd = R.wd;
-
-  const row1 = (name, o, cls, dc) => {
-    const u = o.ms1 / o.cap;
-    return {u, html: `<tr class="${cls}"${dc != null ? ` data-c="${dc}"` : ''}><td>${name}</td><td>${fmt(o.act)}</td><td>${fmt(o.trn)}</td><td>${fmt(o.res)}</td><td>${fmt(o.sc)}</td><td>${fmt(o.cap)}</td><td>${fmt(o.ms1)}</td><td class="${o.cap ? tone(u) : ''}">${o.cap ? pct(u) : '–'}</td><td>${o.cap ? fmt(o.cap - o.ms1) : '–'}</td><td>${fmt(o.booked)}</td><td>${R.wdLeft ? fmt(o.capLeft) : '–'}</td><td>${R.wdLeft && o.capLeft ? pct(o.booked / o.capLeft) : '–'}</td></tr>`};
-  };
-  const pan1 = row1('PAN', pan, 'pan');
-  const rows1 = ids.map(c => ({c, ...row1(D.cities[c], A([c]), rowCls(c), c)})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || sortV(a.u, b.u));
-  $('t1').innerHTML = `<thead><tr><th>City</th><th>Active SCs</th><th>In training</th><th>Resigned</th><th>SCs counted</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>Unused capacity</th><th>Booked ahead</th><th>Capacity left</th><th>Booked ÷ left</th></tr></thead><tbody>${pan1.html}${rows1.map(r => r.html).join('')}</tbody>`;
-  const short = rows1.filter(r => r.c !== OTH && r.u < 0.8);
-  const filt = S.sub1 !== 'ALL' ? D.subs[S.sub1] : S.ch1 !== 'ALL' ? D.channels[S.ch1] : '';
-  $('r1').innerHTML = futureOnly ? '<p>Selected range is after the as-of date — only booked-ahead slots are available.</p>' :
-    `<p>PAN MS at <b>${pct(pan1.u)}</b> of ${teamLbl()} SC capacity (${cnt} SCs)${filt ? ' — ' + filt + ' MS only' : ''}.</p>` +
-    (S.city === 'ALL' ? `<p><b>${short.length}</b> of ${D.cities.length - 1} main cities below 80% — lead shortfall: ${short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.u)).join(', ') || 'none'}.</p>` : '');
-  I.suff = {u: pan1.u, short};
-
-  const row2 = (name, o, cls, dc) => {
-    const a = o.mdsc / tgt;
-    return {a, conv: o.md2 / o.ms2, ms: o.ms2, html: `<tr class="${cls}"${dc != null ? ` data-c="${dc}"` : ''}><td>${name}</td><td>${fmt(o.ms2)}</td><td>${fmt(o.md2)}</td><td>${pct(o.md2 / o.ms2)}</td><td>${fmt(o.sc)}</td><td>${fmt(o.mdC)}</td><td>${f1(o.mdsc)}</td><td>${f1(tgt)}</td><td class="${tone(a)}">${pct(a)}</td><td>${fmt(o.mdK[1])}</td><td>${fmt(o.mdK[2])}</td><td>${fmt(o.mdK[3])}</td><td>${fmt(o.mdK[4])}</td></tr>`};
-  };
-  const pan2 = row2('PAN', pan, 'pan');
-  const rows2 = ids.map(c => ({c, ...row2(D.cities[c], A([c]), rowCls(c), c)})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || sortV(a.a, b.a));
-  $('t2').innerHTML = `<thead><tr><th rowspan="2">City</th><th rowspan="2">Actual MS</th><th rowspan="2">Actual MD</th><th rowspan="2">MS → MD %</th><th rowspan="2">SCs counted</th><th rowspan="2">MD by counted SCs</th><th rowspan="2">MD / SC</th><th rowspan="2">Target MD / SC</th><th rowspan="2">% of target</th><th colspan="4" class="c">MD by other owners</th></tr><tr><th>In training${S.train ? ' (counted)' : ''}</th><th>Resigned SC${S.resig ? ' (counted)' : ''}</th><th>Other SC</th><th>No SC</th></tr></thead><tbody>${pan2.html}${rows2.map(r => r.html).join('')}</tbody>`;
-  const under = rows2.filter(r => r.c !== OTH && r.a < 0.8), convLow = rows2.filter(r => r.c !== OTH && r.conv < pan2.conv - 0.05 && r.ms >= 20);
-  $('r2').innerHTML = futureOnly ? '' : `<p>PAN MS→MD <b>${pct(pan2.conv)}</b>; MD per ${cnt.toLowerCase()} SC <b>${f1(pan.mdsc)}</b> vs target ${f1(tgt)} (${pct(pan2.a)}). MD by Other SC ${fmt(pan.mdK[3])} (${pct(pan.mdK[3] / pan.md2)} of MD).</p>` +
-    (S.city === 'ALL' ? `<p>MD/SC below 80% of target: <b>${under.length}</b> main cities (${under.slice(0, 5).map(r => D.cities[r.c]).join(', ') || 'none'}). MS→MD more than 5pp below PAN: ${convLow.map(r => D.cities[r.c] + ' ' + pct(r.conv)).join(', ') || 'none'}.</p>` : '');
-  I.util = {pan: pan2, under, convLow, panObj: pan};
-}
-
-// ---------- MS -> MD by lead score ----------
-function renderScore(R, ids, all, I) {
-  const nCh = D.channels.length;
-  const panS = new Array(nCh).fill(0), panD = new Array(nCh).fill(0);
-  all.forEach(c => { for (let k = 0; k < nCh; k++) { panS[k] += R.m4s[c][k]; panD[k] += R.m4d[c][k]; } });
-  const panTotS = panS.reduce((a, b) => a + b, 0), panTotD = panD.reduce((a, b) => a + b, 0);
-  const panR = panS.map((s, k) => panD[k] / s).concat(panTotD / panTotS);
-  const cell = (s, d, k, isPan) => {
-    const r = d / s, title = `MD ${fmt(d)} / MS ${fmt(s)}`;
-    if (!s) return `<td class="lo" title="${title}">–</td>`;
-    if (isPan) return `<td title="${title}">${pct(r)}</td>`;
-    if (s < 20) return `<td class="lo" title="${title}">${pct(r)}</td>`;
-    const diff = r - panR[k];
-    return `<td class="${diff >= 0.05 ? 'g' : diff <= -0.05 ? 'r' : ''}" title="${title}">${pct(r)}</td>`;
-  };
-  const row4 = (name, s, d, cls, isPan, dc) => {
-    const ts = s.reduce((a, b) => a + b, 0), td = d.reduce((a, b) => a + b, 0);
-    return `<tr class="${cls}"${dc != null ? ` data-c="${dc}"` : ''}><td>${name}</td>${s.map((x, k) => cell(x, d[k], k, isPan)).join('')}${cell(ts, td, nCh, isPan)}<td>${fmt(ts)}</td></tr>`;
-  };
-  const rows4 = ids.map(c => ({c, t: R.m4s[c].reduce((a, b) => a + b, 0)})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || b.t - a.t);
-  $('t4').innerHTML = `<thead><tr><th>City</th>${D.channels.map(c => `<th>${c}</th>`).join('')}<th>Total</th><th>MS base</th></tr></thead><tbody>${row4('PAN', panS, panD, 'pan', true)}${rows4.map(r => row4(D.cities[r.c], R.m4s[r.c], R.m4d[r.c], rowCls(r.c), false, r.c)).join('')}</tbody>`;
-  const chGap = D.channels.map((c, k) => [c, panR[k]]).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
-  $('r4').innerHTML = `<p>PAN MS→MD <b>${pct(panR[nCh])}</b>${S.band4 !== 'ALL' ? ' for ' + D.bands[S.band4] : ''}. By channel: ${chGap.map(x => x[0] + ' ' + pct(x[1])).join(' · ')}.</p>`;
-}
-
-// ---------- Sub-channels ----------
-function renderSub(R, ids) {
-  const nS = D.subs.length;
-  const nCh = D.channels.length, open = S.open5;   // open = channel index whose sub-channels are dropped down, or null
-  const ms = new Array(nS).fill(0), md = new Array(nS).fill(0), bq = new Array(nS).fill(0);
-  ids.forEach(c => { for (let i = 0; i < nS; i++) { ms[i] += R.s5s[c][i]; md[i] += R.s5d[c][i]; } });
-  const idSet = new Set(ids);
-  for (const [d, c, ch, sb, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && idSet.has(c) && (S.band5 === 'ALL' || b == S.band5)) bq[sb] += v;
-  const totMs = ms.reduce((a, b) => a + b, 0), totMd = md.reduce((a, b) => a + b, 0), totBq = bq.reduce((a, b) => a + b, 0);
-  const panR = totMd / totMs;
-  const tone2 = r => !isFinite(r) ? '' : r - panR >= 0.05 ? 'g' : r - panR <= -0.05 ? 'r' : '';
-  const subsOf = k => D.subs.map((s, i) => i).filter(i => D.subCh[i] === k && (ms[i] || md[i] || bq[i])).sort((a, b) => ms[b] - ms[a] || bq[b] - bq[a]);
-  const cells = (b, s, d) => `<td>${fmt(b)}</td><td>${pct(b / totBq)}</td><td>${fmt(s)}</td><td>${fmt(d)}</td><td class="${s >= 20 ? tone2(d / s) : 'lo'}">${pct(d / s)}</td><td>${pct(s / totMs)}</td>`;
-  let html = '';
-  D.channels.forEach((ch, k) => {
-    const subs = subsOf(k);
-    const cb = subs.reduce((a, i) => a + bq[i], 0), cs = subs.reduce((a, i) => a + ms[i], 0), cd = subs.reduce((a, i) => a + md[i], 0);
-    const isOpen = open === k;
-    html += `<tr class="grp chrow" data-k="${k}" style="cursor:pointer"><td>${isOpen ? '▾' : '▸'} ${ch} <span class="lo" style="font-weight:400">(${subs.length})</span></td>${cells(cb, cs, cd)}</tr>`;
-    if (isOpen) html += subs.map(i => `<tr><td style="padding-left:28px">${D.subs[i]}</td>${cells(bq[i], ms[i], md[i])}</tr>`).join('');
-  });
-  $('t5').innerHTML = `<thead><tr><th>Channel</th><th>BQL</th><th>Share of BQL</th><th>MS</th><th>MD</th><th>MS → MD %</th><th>Share of MS</th></tr></thead><tbody><tr class="pan"><td>Total</td>${cells(totBq, totMs, totMd)}</tr>${html}</tbody>`;
-  document.querySelectorAll('#t5 tr.chrow').forEach(tr => tr.onclick = () => { const k = +tr.dataset.k; S.open5 = S.open5 === k ? null : k; render(); });
-  const chR = D.channels.map((c, k) => { const s = subsOf(k); const a = s.reduce((x, i) => x + ms[i], 0), b = s.reduce((x, i) => x + md[i], 0); return [c, b / a]; }).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
-  let read = `<p>${teamLbl()} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}. MS→MD by channel: ${chR.map(x => x[0] + ' ' + pct(x[1])).join(' · ')}. Click a channel to see its sub-channels.</p>`;
-  if (open != null) {
-    const rk = subsOf(open).filter(i => ms[i] >= 50).sort((a, b) => md[a] / ms[a] - md[b] / ms[b]);
-    const lbl = i => D.subs[i] + ' ' + pct(md[i] / ms[i]);
-    if (rk.length > 5) read += `<p>${D.channels[open]} — lowest MS→MD (50+ MS): ${rk.slice(0, 3).map(lbl).join(', ')}; highest: ${rk.slice(-2).reverse().map(lbl).join(', ')}.</p>`;
-    else if (rk.length) read += `<p>${D.channels[open]} — MS→MD, low to high (50+ MS): ${rk.map(lbl).join(', ')}.</p>`;
-  }
-  $('r5').innerHTML = read;
-
-  // city table: channels as columns, or the open channel's sub-channels
-  const cols = open == null ? D.channels.map((c, k) => ({n: c, ix: subsOf(k)})) : subsOf(open).filter(i => ms[i] > 0).slice(0, 8).map(i => ({n: D.subs[i], ix: [i]}));
-  $('h5b').textContent = open == null ? 'By city — channels' : `By city — ${D.channels[open]} sub-channels (top ${cols.length} by MS)`;
-  const sumC = (c, col, X) => col.ix.reduce((a, i) => a + X[c][i], 0);
-  const tot = col => ({s: col.ix.reduce((a, i) => a + ms[i], 0), d: col.ix.reduce((a, i) => a + md[i], 0)});
-  const colR = cols.map(col => { const t = tot(col); return t.d / t.s; });
-  const val = (s, d) => S.m5 === 's' ? fmt(s) : S.m5 === 'd' ? fmt(d) : pct(d / s);
-  const cell = (s, d, j) => {
-    if (!s && !d) return '<td class="lo">–</td>';
-    const r = d / s, t = `MD ${fmt(d)} / MS ${fmt(s)}`;
-    if (S.m5 !== 'r') return `<td title="${t}">${val(s, d)}</td>`;
-    if (s < 20) return `<td class="lo" title="${t}">${pct(r)}</td>`;
-    const diff = r - colR[j];
-    return `<td class="${diff >= 0.05 ? 'g' : diff <= -0.05 ? 'r' : ''}" title="${t}">${pct(r)}</td>`;
-  };
-  const cityRows = ids.map(c => ({c, t: cols.reduce((a, col) => a + sumC(c, col, R.s5s), 0)})).filter(x => x.t > 0).sort((a, b) => (a.c === OTH) - (b.c === OTH) || b.t - a.t);
-  $('t5b').innerHTML = cols.length ? `<thead><tr><th>City</th>${cols.map(col => `<th>${col.n}</th>`).join('')}</tr></thead><tbody><tr class="pan"><td>Total</td>${cols.map(col => { const t = tot(col); return `<td>${val(t.s, t.d)}</td>`; }).join('')}</tr>` +
-    cityRows.map(x => `<tr class="${rowCls(x.c)}" data-c="${x.c}"><td>${D.cities[x.c]}</td>${cols.map((col, j) => cell(sumC(x.c, col, R.s5s), sumC(x.c, col, R.s5d), j)).join('')}</tr>`).join('') + '</tbody>' : '';
-}
-
-// ---------- Cohort (pending) ----------
-function renderCohort(ids) {
-  const months = D.months.filter(m => m <= D.asOf.slice(0, 7));
-  const bqlM = {}; months.forEach(m => bqlM[m] = 0);
-  const idSet = new Set(ids);
-  for (const [d, c, ch, sb, b, v] of D.bql) {
-    if (!idSet.has(c) || (S.ch3 !== 'ALL' && ch != S.ch3) || (S.band3 !== 'ALL' && b != S.band3)) continue;
-    const m = D.dates[d].slice(0, 7); if (m in bqlM) bqlM[m] += v;
-  }
-  const L = Math.max(3, months.length);
-  $('t3').innerHTML = `<thead><tr><th>BQL month</th><th>BQL</th>${Array.from({length: L}, (_, i) => `<th>MS M${i}</th>`).join('')}<th>Total MS</th><th>BQL → MS %</th></tr></thead><tbody>` +
-    months.map((m, mi) => `<tr><td>${monLbl(m)}${m === D.asOf.slice(0, 7) ? ' (MTD)' : ''}</td><td>${fmt(bqlM[m])}</td>${Array.from({length: L}, (_, i) => mi + i < months.length ? '<td class="pend">pending</td>' : '<td class="fut"></td>').join('')}<td class="pend">pending</td><td class="pend">pending</td></tr>`).join('') + '</tbody>';
 }
 
 // ---------- Overview ----------
 function renderOverview(R, I) {
-  const s = I.sel, u = I.util, mop = I.mop;
+  const s = I.suff, o = s.sel, scope = S.city === 'ALL' ? 'PAN' : D.cities[+S.city];
   const t = (k, v, n, cls) => `<div class="tile ${cls || ''}"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`;
+  const lu = I.lu;
   $('tiles').innerHTML = [
-    mop ? t('MD vs MOP', pct(mop.p[2]), `BQL ${pct(mop.p[0])} · MS ${pct(mop.p[1])} of MOP MTD`, tone(mop.p[2])) : t('MD vs MOP', '–', 'No MOP for these dates'),
-    t('MS ÷ SC capacity', pct(s.ms2 / s.cap), `${fmt(s.ms2)} MS vs ${fmt(s.cap)} capacity`, tone(s.ms2 / s.cap)),
-    t('MD per SC', f1(s.mdsc), `target ${f1(I.tgt)} · ${pct(s.mdsc / I.tgt)}`, tone(s.mdsc / I.tgt)),
-    t('MS → MD', pct(s.md2 / s.ms2), `${fmt(s.md2)} MD on ${fmt(s.ms2)} MS`),
-    t(`${teamLbl()} SCs (${I.cnt})`, fmt(s.sc), `${fmt(s.trn)} in training · ${fmt(s.res)} resigned`),
-    t('Booked ahead', fmt(s.bookedAll), R.wdLeft ? `meeting slots after ${dLbl(D.asOf)}` : 'range ends before as-of'),
+    t(`${teamLbl()} SC count (Active)`, fmt(o.sc), `${scope} · ${f1(R.wd)} working days elapsed`),
+    t('MS ÷ capacity', pct(o.u), `${fmt(o.ms)} MS vs ${fmt(o.cap)} capacity`, tone(o.u)),
+    t('MD per SC', f1(o.mdsc), `target ${f1(s.tgt)} · ${pct(o.a)}`, tone(o.a)),
+    t('MS → MD', pct(o.conv), `${fmt(o.md)} MD on ${fmt(o.ms)} MS`),
+    lu ? t('BQL → MD (MTD)', pct(lu.cur.d / lu.cur.b), `LMTD ${pct(lu.lm.d / lu.lm.b)}`) : '',
   ].join('');
   const card = (title, tab, body) => `<div class="card"><h4>${title}<a data-go="${tab}">Open ›</a></h4>${body}</div>`;
   const list = a => a.length ? a.join(', ') : 'none';
+  const f = I.funnel;
   $('att').innerHTML = [
-    card('MOP tracking', 'mop', mop ? `<p>${mop.period}: MD at <b>${pct(mop.p[2])}</b> of MOP MTD.</p><p>Cities below 80% on MD: ${list(mop.low.slice(0, 5))}.</p><p>Weakest channels on MD: ${I.mopCh.slice(0, 2).map(x => x[0] + ' ' + pct(x[1])).join(', ')}.</p>` : '<p>No MOP loaded for the selected dates.</p>'),
-    card('Lead sufficiency', 'suff', `<p>MS at <b>${pct(I.suff.u)}</b> of ${teamLbl()} SC capacity${S.sub1 !== 'ALL' ? ' (' + D.subs[S.sub1] + ' only)' : S.ch1 !== 'ALL' ? ' (' + D.channels[S.ch1] + ' only)' : ''}.</p><p>Main cities below 80% (lead shortfall): ${list(I.suff.short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.u)))}.</p>`),
-    card('SC utilisation', 'util', `<p>MD per SC <b>${f1(u.panObj.mdsc)}</b> vs target ${f1(I.tgt)}.</p><p>Lowest MD/SC: ${list(u.under.slice(0, 5).map(r => D.cities[r.c]))}.</p><p>MS→MD more than 5pp below PAN: ${list(u.convLow.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.conv)))}.</p>`),
+    card('Lead sufficiency & SC utilisation', 'suff', `<p>MS at <b>${pct(s.pan.u)}</b> of capacity; MD / SC <b>${f1(s.pan.mdsc)}</b> vs target ${f1(s.tgt)} (PAN).</p><p>Below 80% of capacity: ${list(s.short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.u)))}.</p><p>Lowest MD / SC: ${list(s.under.slice(0, 5).map(r => D.cities[r.c] + ' ' + f1(r.o.mdsc)))}.</p>`),
+    card('Funnel × LQI × Channel', 'funnel', f ? `<p>${f.city}: BQL → MD <b>${pct(f.cr[3])}</b> vs PAN ${pct(f.pr[3])}; MS → MD ${pct(f.cr[2])}.</p><p>Furthest below PAN: ${list(f.weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`))}.</p>` : '<p>Select a city in the top filter to see its channel funnel.</p>'),
+    card('Lead utilisation', 'lu', lu ? `<p>${scope} · ${monLbl(lu.curM)} MTD vs LMTD: BQL ${lu.chg(lu.cur.b, lu.lm.b)}, MS ${lu.chg(lu.cur.s, lu.lm.s)}, MD ${lu.chg(lu.cur.d, lu.lm.d)}.</p><p>BQL → MS ${pct(lu.cur.s / lu.cur.b)} (LMTD ${pct(lu.lm.s / lu.lm.b)}); MS → MD ${pct(lu.cur.d / lu.cur.s)} (LMTD ${pct(lu.lm.d / lu.lm.s)}).</p>` : '<p>Needs two months of data.</p>'),
   ].join('');
   document.querySelectorAll('[data-go]').forEach(a => a.onclick = () => { showTab(a.dataset.go); window.scrollTo({top: 0}); });
 }
