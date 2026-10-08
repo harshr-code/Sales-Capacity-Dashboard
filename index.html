@@ -177,8 +177,8 @@ tbody tr.click:hover td{background:var(--head)}
 <!-- SUB-CHANNELS -->
 <div class="tab" id="t-subch">
   <section>
-    <h2>Sub-channel view — MS, MD and MS → MD %</h2>
-    <p class="def">Sub-channel = Source sub-class (Col D of the MS to MD tab). Selected dates, sales channel and city apply. Sorted by MS within each channel.</p>
+    <h2>Sub-channel view — BQL, MS, MD and MS → MD %</h2>
+    <p class="def">Sub-channel = Source sub-class (Col D of the MS to MD and BQL tabs). Selected dates and city apply to all columns; sales channel applies to MS / MD only (BQL is before SC assignment). Sorted by MS within each channel.</p>
     <div class="sf"><label>Channel<select id="f5Ch"></select></label><label>Sub-channel<select id="f5Sub"></select></label><label>Lead score band<select id="f5Band"></select></label></div>
     <div class="read" id="r5"></div>
     <div class="tw"><table id="t5"></table></div>
@@ -210,7 +210,7 @@ tbody tr.click:hover td{background:var(--head)}
       <dt>Coverage</dt>
       <dd>All leads in the source are counted. Cities outside the 23 clusters sit under <b>Other cities</b>, so PAN equals the sheet total. MOP is set for the 23 clusters only, so MOP comparisons exclude Other cities. Delhi NCR = Delhi + Noida + Ghaziabad + Gurgaon + Faridabad.</dd>
       <dt>Channels</dt>
-      <dd><b>Digital</b> — Digital sources only (Google, Meta, organic, inbound and other digital sub-sources).<br><b>Referral</b> — referral leads excluding BTL-sourced referrals.<br><b>BTL</b> — BTL activities, including <b>BTL Referral</b>.<br><b>SolarPro</b> — SolarPro partner leads (Lead Model, Sales Model).<br><b>Others</b> — all sources other than Digital, Referral, SolarPro and BTL: Cold Marketing / Discom data, newspaper, Experience Centre, Affiliate, IVR and untagged.<br>BQL tab: BTL Referral BQL currently sits under Referral, as the BQL tab has no sub-channel column.</dd>
+      <dd><b>Digital</b> — Digital sources only (Google, Meta, organic, inbound and other digital sub-sources).<br><b>Referral</b> — referral leads excluding BTL-sourced referrals.<br><b>BTL</b> — BTL activities, including <b>BTL Referral</b>.<br><b>SolarPro</b> — SolarPro partner leads (Lead Model, Sales Model).<br><b>Others</b> — all sources other than Digital, Referral, SolarPro and BTL: Cold Marketing / Discom data, newspaper, Experience Centre, Affiliate, IVR and untagged.<br>Channel and sub-channel are applied the same way in the BQL and MS to MD tabs, so BTL Referral sits under BTL for BQL, MS and MD.</dd>
       <dt>MS and MD</dt>
       <dd>Effort basis: MS counted on the meeting slot date, MD on the meeting done date. The source holds the last meeting per lead, so a lead rescheduled more than once counts once, on its latest date. MS → MD % = MD ÷ MS for the same dates.</dd>
       <dt>SCs</dt>
@@ -224,7 +224,7 @@ tbody tr.click:hover td{background:var(--head)}
       <dt>Colour rules</dt>
       <dd>vs MOP / capacity / target: green ≥ 100%, amber 80–100%, red &lt; 80%. MS → MD %: green / red when ≥ 5pp above / below the PAN rate for the same channel.</dd>
       <dt>Pending</dt>
-      <dd>BQL → MS cohort needs Lead_ID in the BQL tab. BTL Referral split in BQL needs a sub-channel column in the BQL tab.</dd>
+      <dd>BQL → MS cohort needs Lead_ID in the BQL tab.</dd>
     </dl>
   </section>
 </div>
@@ -371,7 +371,7 @@ function renderMop(R, ids, I) {
   const z = () => [0, 1, 2].map(() => D.cities.map(() => new Array(nCh).fill(0)));
   const mtdC = z(), actC = z();
   for (const [c, day, m, ch, v] of D.mop.rows) { if (m <= 2 && days.has(day)) mtdC[m][c][ch] += v; }
-  for (const [d, c, ch, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && inM(d)) actC[0][c][ch] += v;
+  for (const [d, c, ch, sb, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && inM(d)) actC[0][c][ch] += v;
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) if (d >= R.fi && d <= R.effTo && inM(d)) { actC[1][c][ch] += ms; actC[2][c][ch] += md; }
   const chOk = ch => S.ch0 === 'ALL' || ch == S.ch0;
   const fold = X => X.map(st => st.map(r => r.reduce((a, v, ch) => a + (chOk(ch) ? v : 0), 0)));
@@ -483,21 +483,23 @@ function renderScore(R, ids, all, I) {
 function renderSub(R, ids) {
   const nS = D.subs.length;
   const subOk = i => (S.ch5 === 'ALL' || D.subCh[i] == S.ch5) && (S.sub5 === 'ALL' || i == S.sub5);
-  const ms = new Array(nS).fill(0), md = new Array(nS).fill(0);
+  const ms = new Array(nS).fill(0), md = new Array(nS).fill(0), bq = new Array(nS).fill(0);
   ids.forEach(c => { for (let i = 0; i < nS; i++) { ms[i] += R.s5s[c][i]; md[i] += R.s5d[c][i]; } });
-  const totMs = ms.reduce((a, b) => a + b, 0), totMd = md.reduce((a, b) => a + b, 0);
+  const idSet = new Set(ids);
+  for (const [d, c, ch, sb, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && idSet.has(c) && (S.band5 === 'ALL' || b == S.band5)) bq[sb] += v;
+  const totMs = ms.reduce((a, b) => a + b, 0), totMd = md.reduce((a, b) => a + b, 0), totBq = bq.reduce((a, b) => a + b, 0);
   const panR = totMd / totMs;
   const tone2 = r => !isFinite(r) ? '' : r - panR >= 0.05 ? 'g' : r - panR <= -0.05 ? 'r' : '';
   let html = '';
   D.channels.forEach((ch, k) => {
     if (S.ch5 !== 'ALL' && S.ch5 != k) return;
-    const subs = D.subs.map((s, i) => i).filter(i => D.subCh[i] === k && subOk(i) && (ms[i] || md[i])).sort((a, b) => ms[b] - ms[a]);
+    const subs = D.subs.map((s, i) => i).filter(i => D.subCh[i] === k && subOk(i) && (ms[i] || md[i] || bq[i])).sort((a, b) => ms[b] - ms[a] || bq[b] - bq[a]);
     if (!subs.length) return;
-    const cs = subs.reduce((a, i) => a + ms[i], 0), cd = subs.reduce((a, i) => a + md[i], 0);
-    html += `<tr class="grp"><td>${ch}</td><td>${fmt(cs)}</td><td>${fmt(cd)}</td><td>${pct(cd / cs)}</td><td>${pct(cs / totMs)}</td></tr>`;
-    html += subs.map(i => `<tr><td>&nbsp;&nbsp;${D.subs[i]}</td><td>${fmt(ms[i])}</td><td>${fmt(md[i])}</td><td class="${ms[i] >= 20 ? tone2(md[i] / ms[i]) : 'lo'}">${pct(md[i] / ms[i])}</td><td>${pct(ms[i] / totMs)}</td></tr>`).join('');
+    const cb = subs.reduce((a, i) => a + bq[i], 0), cs = subs.reduce((a, i) => a + ms[i], 0), cd = subs.reduce((a, i) => a + md[i], 0);
+    html += `<tr class="grp"><td>${ch}</td><td>${fmt(cb)}</td><td>${pct(cb / totBq)}</td><td>${fmt(cs)}</td><td>${fmt(cd)}</td><td>${pct(cd / cs)}</td><td>${pct(cs / totMs)}</td></tr>`;
+    html += subs.map(i => `<tr><td>&nbsp;&nbsp;${D.subs[i]}</td><td>${fmt(bq[i])}</td><td>${pct(bq[i] / totBq)}</td><td>${fmt(ms[i])}</td><td>${fmt(md[i])}</td><td class="${ms[i] >= 20 ? tone2(md[i] / ms[i]) : 'lo'}">${pct(md[i] / ms[i])}</td><td>${pct(ms[i] / totMs)}</td></tr>`).join('');
   });
-  $('t5').innerHTML = `<thead><tr><th>Channel › Sub-channel</th><th>MS</th><th>MD</th><th>MS → MD %</th><th>Share of MS</th></tr></thead><tbody><tr class="pan"><td>Total (all sub-channels)</td><td>${fmt(totMs)}</td><td>${fmt(totMd)}</td><td>${pct(panR)}</td><td>100.0%</td></tr>${html}</tbody>`;
+  $('t5').innerHTML = `<thead><tr><th>Channel › Sub-channel</th><th>BQL</th><th>Share of BQL</th><th>MS</th><th>MD</th><th>MS → MD %</th><th>Share of MS</th></tr></thead><tbody><tr class="pan"><td>Total (all sub-channels)</td><td>${fmt(totBq)}</td><td>100.0%</td><td>${fmt(totMs)}</td><td>${fmt(totMd)}</td><td>${pct(panR)}</td><td>100.0%</td></tr>${html}</tbody>`;
   const ranked = D.subs.map((s, i) => i).filter(i => subOk(i) && ms[i] >= 50).sort((a, b) => md[a] / ms[a] - md[b] / ms[b]);
   $('r5').innerHTML = `<p>${teamLbl()} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}. Lowest MS→MD among sub-channels with 50+ MS: ${ranked.slice(0, 4).map(i => D.subs[i] + ' ' + pct(md[i] / ms[i])).join(', ') || '–'}. Highest: ${ranked.slice(-3).reverse().map(i => D.subs[i] + ' ' + pct(md[i] / ms[i])).join(', ') || '–'}.</p>`;
 
@@ -524,7 +526,7 @@ function renderCohort(ids) {
   const months = D.months.filter(m => m <= D.asOf.slice(0, 7));
   const bqlM = {}; months.forEach(m => bqlM[m] = 0);
   const idSet = new Set(ids);
-  for (const [d, c, ch, b, v] of D.bql) {
+  for (const [d, c, ch, sb, b, v] of D.bql) {
     if (!idSet.has(c) || (S.ch3 !== 'ALL' && ch != S.ch3) || (S.band3 !== 'ALL' && b != S.band3)) continue;
     const m = D.dates[d].slice(0, 7); if (m in bqlM) bqlM[m] += v;
   }
