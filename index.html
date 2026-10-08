@@ -129,7 +129,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-suff">
   <section>
     <h2>Lead sufficiency &amp; SC utilisation</h2>
-    <p class="def">SC count (Active) = people in the selected month's manpower file (Department = selected sales channel, city from the file) with status Active or Resigned, who also appear as SC on the MS to MD tab that month; In Training / Newly Hired are not counted. Working days = days in the selected range up to the as-of date, minus Mondays (weekly off). Meeting capacity = SC count × meetings per SC per day × working days. MD = all meetings done; MD by SCs = MD done by the SCs in the SC count; MD / SC = MD by SCs ÷ SC count; target MD / SC = meetings per SC per day × working days. <b>Capacity utilisation = MD by SCs ÷ meeting capacity.</b> Actual MS → MD uses all MS and MD. Channel and sub-channel filters apply to MS and MD; capacity stays at city level.</p>
+    <p class="def">SC count (Active) = people in the selected month's manpower file (Department = selected sales channel, city from the file) with status Active or Resigned, who also appear as SC on the MS to MD tab that month; In Training / Newly Hired are not counted. Working days = days in the selected range up to the as-of date, minus Mondays (weekly off). Meeting capacity = SC count × meetings per SC per day × working days. MD = all meetings done; MD by SCs = MD done by the SCs in the SC count; MD / SC = MD by SCs ÷ SC count. <b>Capacity utilisation = MD by SCs ÷ meeting capacity.</b> Actual MS → MD uses all MS and MD. Channel and sub-channel filters apply to MS and MD; capacity stays at city level.</p>
     <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label><label>Sort by<select id="f1Sort"><option value="u">MS ÷ capacity (low → high)</option><option value="scDesc">SC count (high → low)</option><option value="scAsc">SC count (low → high)</option></select></label></div>
     <div class="read" id="r1"></div>
     <div class="tw"><table id="t1"></table></div>
@@ -383,16 +383,16 @@ function renderSuff(R, ids, all, I) {
     o.a = o.cap ? o.mdSc / o.cap : NaN;   // capacity utilisation = MD by SCs ÷ meeting capacity
     return o;
   };
-  const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${fmt(o.mdSc)}</td><td>${f1(o.mdsc)}</td><td>${f1(tgt)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td></tr>`;
+  const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${fmt(o.mdSc)}</td><td>${f1(o.mdsc)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td></tr>`;
   const pan = A(all), sel = A(ids);
   // PAN stays on top and Other cities last; cities sorted by the Sort by filter
   const by = {u: (a, b) => sortV(a.o.u, b.o.u), scDesc: (a, b) => b.o.sc - a.o.sc, scAsc: (a, b) => a.o.sc - b.o.sc}[S.sort1];
   const rows = ids.map(c => ({c, o: A([c])})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || by(a, b));
-  $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD by SCs</th><th>MD / SC</th><th>Target MD / SC</th><th>Capacity utilisation</th><th>Actual MS → MD</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
+  $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD by SCs</th><th>MD / SC</th><th>Capacity utilisation</th><th>Actual MS → MD</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
   const main = rows.filter(r => r.c !== OTH && r.o.sc >= 3);   // callouts skip cities with under 3 SCs
   const short = main.filter(r => r.o.u < 0.8), under = main.filter(r => r.o.a < 0.8).sort((a, b) => sortV(a.o.a, b.o.a));
   const filt = S.sub1 !== 'ALL' ? D.subs[S.sub1] : S.ch1 !== 'ALL' ? D.channels[S.ch1] : '';
-  $('r1').innerHTML = R.pastTot ? `<p>${teamLbl()}${filt ? ' · ' + filt : ''} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: MS at <b>${pct(pan.u)}</b> of capacity; MD / SC <b>${f1(pan.mdsc)}</b> vs target ${f1(tgt)}; capacity utilisation <b>${pct(pan.a)}</b>; MS → MD ${pct(pan.conv)}.</p>` +
+  $('r1').innerHTML = R.pastTot ? `<p>${teamLbl()}${filt ? ' · ' + filt : ''} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: MS at <b>${pct(pan.u)}</b> of capacity; MD / SC <b>${f1(pan.mdsc)}</b>; capacity utilisation <b>${pct(pan.a)}</b>; MS → MD ${pct(pan.conv)}.</p>` +
     (S.city === 'ALL' ? `<p>Below 80% of capacity (lead shortfall): ${short.slice(0, 6).map(r => D.cities[r.c] + ' ' + pct(r.o.u)).join(', ') || 'none'}. Lowest capacity utilisation: ${under.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.a)).join(', ') || 'none'}.</p>` : '')
     : '<p>Selected dates are after the as-of date.</p>';
   I.suff = {pan, sel, tgt, short, under};
@@ -417,20 +417,21 @@ function renderFunnel(R, I) {
   tot(city); tot(pan);
   // LS LRM is tracked for Digital only (other channels reach LRM without bill qualification)
   const lrmOk = k => k === 0;
-  const rates = (o, k) => [lrmOk(k) ? o.l[k] / o.b[k] : NaN, lrmOk(k) ? o.s[k] / o.l[k] : NaN, o.d[k] / o.s[k], o.d[k] / o.b[k]];
+  // [BQL -> LS LRM, LS LRM -> MS, MS -> MD, BQL -> MS, BQL -> MD]
+  const rates = (o, k) => [lrmOk(k) ? o.l[k] / o.b[k] : NaN, lrmOk(k) ? o.s[k] / o.l[k] : NaN, o.d[k] / o.s[k], o.s[k] / o.b[k], o.d[k] / o.b[k]];
   const names = D.channels.concat('Total');
   const line = (o, k, isPan, cls) => {
     const r = rates(o, k), p = rates(pan, k);
     const cells = r.map((x, j) => `<td class="${j === 0 ? 'sep ' : ''}${isPan || isPanView ? '' : toneVs(x, p[j])}">${pct(x)}</td>`).join('');
     return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(o.b[k])}</td><td>${lrmOk(k) ? fmt(o.l[k]) : '–'}</td><td>${fmt(o.s[k])}</td><td>${fmt(o.d[k])}</td>${cells}</tr>`;
   };
-  const head = `<thead><tr><th>Channel</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>MS → MD</th><th>BQL → MD</th></tr></thead>`;
+  const head = `<thead><tr><th>Channel</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>MS → MD</th><th>BQL → MS</th><th>BQL → MD</th></tr></thead>`;
   const body = D.channels.map((_, k) => line(city, k, false, '')).join('') + line(city, nCh, false, 'pan');
   const name = isPanView ? 'PAN (all cities)' : D.cities[+S.city];
   const cr = rates(city, nCh);
   // PAN view: rank channels on their own BQL -> MD; city view: gap vs the same channel at PAN
-  const weak = D.channels.map((ch, k) => [ch, isPanView ? rates(city, k)[3] : rates(city, k)[3] - rates(pan, k)[3], rates(city, k)[3]]).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
-  $('funnelBody').innerHTML = `<div class="read"><p><b>${name}</b> · ${S.band2 === 'ALL' ? 'all lead scores' : D.bands[S.band2]} · ${teamLbl()} MS / MD · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL → MD <b>${pct(cr[3])}</b>${isPanView ? '' : ` (PAN ${pct(rates(pan, nCh)[3])})`}; MS → MD ${pct(cr[2])}.</p>` +
+  const weak = D.channels.map((ch, k) => [ch, isPanView ? rates(city, k)[4] : rates(city, k)[4] - rates(pan, k)[4], rates(city, k)[4]]).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
+  $('funnelBody').innerHTML = `<div class="read"><p><b>${name}</b> · ${S.band2 === 'ALL' ? 'all lead scores' : D.bands[S.band2]} · ${teamLbl()} MS / MD · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL → MS ${pct(cr[3])}; MS → MD ${pct(cr[2])}; BQL → MD <b>${pct(cr[4])}</b>${isPanView ? '' : ` (PAN ${pct(rates(pan, nCh)[4])})`}.</p>` +
     (weak.length ? (isPanView ? `<p>Lowest BQL → MD by channel: ${weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`).join(', ')}.</p>`
       : `<p>Furthest below PAN on BQL → MD: ${weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])} (${(x[1] * 100).toFixed(1)}pp)`).join(', ')}.</p>`) : '') +
     `</div><div class="tw"><table>${head}<tbody>${body}</tbody></table></div>`;
@@ -558,7 +559,7 @@ function renderOverview(R, I) {
   const f = I.funnel;
   $('att').innerHTML = [
     card('Lead sufficiency & SC utilisation', 'suff', `<p>MS at <b>${pct(s.pan.u)}</b> of capacity; MD / SC <b>${f1(s.pan.mdsc)}</b> vs target ${f1(s.tgt)}; capacity utilisation <b>${pct(s.pan.a)}</b> (PAN).</p><p>Below 80% of capacity: ${list(s.short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.u)))}.</p><p>Lowest capacity utilisation: ${list(s.under.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.a)))}.</p>`),
-    card('Lead utilisation × Channel', 'funnel', `<p>${f.city}: BQL → MD <b>${pct(f.cr[3])}</b>${f.isPan ? '' : ` vs PAN ${pct(f.pr[3])}`}; MS → MD ${pct(f.cr[2])}.</p><p>${f.isPan ? 'Lowest BQL → MD by channel' : 'Furthest below PAN'}: ${list(f.weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`))}.</p>`),  ].join('');
+    card('Lead utilisation × Channel', 'funnel', `<p>${f.city}: BQL → MD <b>${pct(f.cr[4])}</b>${f.isPan ? '' : ` vs PAN ${pct(f.pr[4])}`}; BQL → MS ${pct(f.cr[3])}; MS → MD ${pct(f.cr[2])}.</p><p>${f.isPan ? 'Lowest BQL → MD by channel' : 'Furthest below PAN'}: ${list(f.weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`))}.</p>`),  ].join('');
   document.querySelectorAll('[data-go]').forEach(a => a.onclick = () => { showTab(a.dataset.go); window.scrollTo({top: 0}); });
 }
 </script>
