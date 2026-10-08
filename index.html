@@ -112,6 +112,7 @@ tbody tr.click:hover td{background:var(--head)}
     <label title="Editable">Meetings / SC / day<input type="number" id="fPerDay" class="lever" min="0.5" max="6" step="0.25" value="2"></label>
     <label title="Editable">Working days / week<input type="number" id="fDpw" class="lever" min="1" max="7" step="1" value="6"></label>
     <label title="Editable">In-training SCs<select id="fTrain" class="lever"><option value="0">Exclude</option><option value="1">Include</option></select></label>
+    <label title="Editable">Resigned SCs<select id="fRes" class="lever"><option value="0">Exclude</option><option value="1">Include</option></select></label>
   </div>
 </div>
 <div id="err"></div>
@@ -146,7 +147,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-suff">
   <section>
     <h2>Lead sufficiency — SC capacity vs meetings scheduled</h2>
-    <p class="def">SCs from the monthly manpower mapping (Field Sales: SC / Sr SC; Inside Sales: SC). Active = 30+ days tenure on the 1st of the month; In training = under 30 days; Resigned = status Resigned (never counted in capacity). Capacity = SCs counted × meetings per SC per day × working days. MS on meeting slot date up to the as-of date; later slots shown as booked ahead. Channel / sub-channel filters change MS only — capacity stays at city level.</p>
+    <p class="def">SCs from the monthly manpower mapping (Field Sales: SC / Sr SC; Inside Sales: SC). Active = 30+ days tenure on the 1st of the month; In training = under 30 days; Resigned = status Resigned in that month's mapping. In-training and Resigned SCs are added to capacity only when set to Include in the filter bar. Capacity = SCs counted × meetings per SC per day × working days. MS on meeting slot date up to the as-of date; later slots shown as booked ahead. Channel / sub-channel filters change MS only — capacity stays at city level.</p>
     <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label></div>
     <div class="read" id="r1"></div>
     <div class="tw"><table id="t1"></table></div>
@@ -223,7 +224,7 @@ tbody tr.click:hover td{background:var(--head)}
       <dt>Other SC and No SC</dt>
       <dd><b>Other SC</b> = meetings on leads whose SC email is not in that month's manpower mapping as an SC — TLs, Experience Centre staff, KAMs, ex-employees. <b>No SC</b> = lead with no SC email. Both are included in all MS / MD totals and excluded only from MD per SC.</dd>
       <dt>Capacity and targets</dt>
-      <dd>Meeting capacity = SCs counted × meetings per SC per day × working days (days × working days per week ÷ 7). Defaults: 2 meetings per day, 6-day week, Active SCs only — all editable in the filter bar. MD/SC target = meetings per SC per day × working days elapsed.</dd>
+      <dd>Meeting capacity = SCs counted × meetings per SC per day × working days (days × working days per week ÷ 7). Defaults: 2 meetings per day, 6-day week, Active SCs only (In-training and Resigned SCs can be included) — all editable in the filter bar. MD/SC target = meetings per SC per day × working days elapsed.</dd>
       <dt>Lead score bands</dt>
       <dd>Excellent 9–10 · Good 7–9 · Average 5–7 · Poor below 5 (a score of 9 falls in Good, 7 in Average). Leads without a score count under All only.</dd>
       <dt>Colour rules</dt>
@@ -237,7 +238,7 @@ tbody tr.click:hover td{background:var(--head)}
 
 <script>
 let D, DI = {}, OTH;
-const S = {city:'ALL', from:null, to:null, perDay:2, dpw:6, team:'0', train:false, tab:'overview',
+const S = {city:'ALL', from:null, to:null, perDay:2, dpw:6, team:'0', train:false, resig:false, tab:'overview',
   ch0:'ALL', m0c:'2', v0c:'p', ch1:'ALL', sub1:'ALL', band3:'ALL', ch3:'ALL', band4:'ALL', open5:null, band5:'ALL', m5:'r'};
 const $ = id => document.getElementById(id);
 const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
@@ -304,6 +305,7 @@ function init(d) {
   on('fPerDay', v => S.perDay = +v || 0);
   on('fDpw', v => S.dpw = Math.min(7, Math.max(1, +v || 6)));
   on('fTrain', v => S.train = v === '1');
+  on('fRes', v => S.resig = v === '1');
   on('f0Ch', v => S.ch0 = v); on('f0cM', v => S.m0c = v); on('f0cV', v => S.v0c = v);
   on('f1Ch', v => { S.ch1 = v; S.sub1 = 'ALL'; subOpts($('f1Sub'), v); $('f1Sub').value = 'ALL'; });
   on('f1Sub', v => S.sub1 = v);
@@ -337,7 +339,7 @@ function compute() {
   const effTo = Math.min(ti, D.asOfIdx);
   const nC = D.cities.length, nCh = D.channels.length, nS = D.subs.length;
   const z = n => new Array(n).fill(0);
-  const counted = k => k === 0 || (k === 1 && S.train);
+  const counted = k => k === 0 || (k === 1 && S.train) || (k === 2 && S.resig);
   const R = {fi, ti, effTo, ms1: z(nC), booked: z(nC), bookedAll: z(nC), ms2: z(nC), md2: z(nC), mdK: D.cities.map(() => z(5)),
     m4s: D.cities.map(() => z(nCh)), m4d: D.cities.map(() => z(nCh)),
     s5s: D.cities.map(() => z(nS)), s5d: D.cities.map(() => z(nS)),
@@ -442,11 +444,11 @@ function renderSuffUtil(R, ids, all, I) {
       o.ms1 += R.ms1[c]; o.booked += R.booked[c]; o.bookedAll += R.bookedAll[c]; o.ms2 += R.ms2[c]; o.md2 += R.md2[c]; R.mdK[c].forEach((v, k) => o.mdK[k] += v); });
     o.sc = R.pastTot ? o.scDays / R.pastTot : 0;
     o.cap = o.scDays * rate; o.capLeft = o.scLeftDays * rate;
-    o.mdC = o.mdK[0] + (S.train ? o.mdK[1] : 0);
+    o.mdC = o.mdK[0] + (S.train ? o.mdK[1] : 0) + (S.resig ? o.mdK[2] : 0);
     o.mdsc = o.sc ? o.mdC / o.sc : NaN;
     return o;
   };
-  const sel = A(ids), pan = A(all), cnt = S.train ? 'Active + training' : 'Active';
+  const sel = A(ids), pan = A(all), cnt = ['Active', S.train && 'training', S.resig && 'resigned'].filter(Boolean).join(' + ');
   I.sel = sel; I.tgt = tgt; I.cnt = cnt; I.wd = R.wd;
 
   const row1 = (name, o, cls, dc) => {
@@ -469,7 +471,7 @@ function renderSuffUtil(R, ids, all, I) {
   };
   const pan2 = row2('PAN', pan, 'pan');
   const rows2 = ids.map(c => ({c, ...row2(D.cities[c], A([c]), rowCls(c), c)})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || sortV(a.a, b.a));
-  $('t2').innerHTML = `<thead><tr><th rowspan="2">City</th><th rowspan="2">Actual MS</th><th rowspan="2">Actual MD</th><th rowspan="2">MS → MD %</th><th rowspan="2">SCs counted</th><th rowspan="2">MD by counted SCs</th><th rowspan="2">MD / SC</th><th rowspan="2">Target MD / SC</th><th rowspan="2">% of target</th><th colspan="4" class="c">MD by other owners</th></tr><tr><th>In training${S.train ? ' (counted)' : ''}</th><th>Resigned SC</th><th>Other SC</th><th>No SC</th></tr></thead><tbody>${pan2.html}${rows2.map(r => r.html).join('')}</tbody>`;
+  $('t2').innerHTML = `<thead><tr><th rowspan="2">City</th><th rowspan="2">Actual MS</th><th rowspan="2">Actual MD</th><th rowspan="2">MS → MD %</th><th rowspan="2">SCs counted</th><th rowspan="2">MD by counted SCs</th><th rowspan="2">MD / SC</th><th rowspan="2">Target MD / SC</th><th rowspan="2">% of target</th><th colspan="4" class="c">MD by other owners</th></tr><tr><th>In training${S.train ? ' (counted)' : ''}</th><th>Resigned SC${S.resig ? ' (counted)' : ''}</th><th>Other SC</th><th>No SC</th></tr></thead><tbody>${pan2.html}${rows2.map(r => r.html).join('')}</tbody>`;
   const under = rows2.filter(r => r.c !== OTH && r.a < 0.8), convLow = rows2.filter(r => r.c !== OTH && r.conv < pan2.conv - 0.05 && r.ms >= 20);
   $('r2').innerHTML = futureOnly ? '' : `<p>PAN MS→MD <b>${pct(pan2.conv)}</b>; MD per ${cnt.toLowerCase()} SC <b>${f1(pan.mdsc)}</b> vs target ${f1(tgt)} (${pct(pan2.a)}). MD by Other SC ${fmt(pan.mdK[3])} (${pct(pan.mdK[3] / pan.md2)} of MD).</p>` +
     (S.city === 'ALL' ? `<p>MD/SC below 80% of target: <b>${under.length}</b> main cities (${under.slice(0, 5).map(r => D.cities[r.c]).join(', ') || 'none'}). MS→MD more than 5pp below PAN: ${convLow.map(r => D.cities[r.c] + ' ' + pct(r.conv)).join(', ') || 'none'}.</p>` : '');
