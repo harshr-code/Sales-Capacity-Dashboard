@@ -86,33 +86,30 @@ $mpMonths = @($mp | ForEach-Object { $_.month } | Sort-Object -Unique)
 $months = @($dates | ForEach-Object { $_.Substring(0, 7) } | Sort-Object -Unique)
 $sha = [Security.Cryptography.SHA256]::Create()
 function Get-Hash($e) { (($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($e)) | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 20) }
-$roster = @{}; $rosterFrom = @(); $rost = @{}
+# Roster per month: hash -> [team (manpower Department), cityIdx (manpower city), status class]. Each month uses its own
+# file, or the latest earlier file until that month's file is loaded.
+$roster = @{}; $rosterFrom = @(); $present = @{}
 for ($mi = 0; $mi -lt $months.Count; $mi++) {
   $mk = $months[$mi]
   $src = @($mpMonths | Where-Object { $_ -le $mk } | Select-Object -Last 1)[0]
   if (-not $src) { $src = $mpMonths[0] }
   $rosterFrom += $src
-  $first = [datetime]::ParseExact($mk + '-01', 'yyyy-MM-dd', $INV)
   $map = @{}
-  foreach ($r in $mp) {
-    if ($r.month -ne $src) { continue }
-    $cls = 0
-    if ($r.resigned -eq '1') { $cls = 2 }
-    elseif ($r.doj -and ($first - [datetime]::ParseExact($r.doj, 'yyyy-MM-dd', $INV)).Days -lt 30) { $cls = 1 }
-    $t = [int]$r.team
-    $map["$($r.hash)|$t"] = $cls
-    $c = Get-CityIdx $r.city
-    if ($c -ge 0) { $k = "$mi|$c|$t|$cls"; if ($rost.ContainsKey($k)) { $rost[$k]++ } else { $rost[$k] = 1 } }
-  }
-  $roster[$mk] = $map
+  foreach ($r in $mp) { if ($r.month -eq $src) { $map[$r.hash] = @([int]$r.team, (Get-CityIdx $r.city), [int]$r.status) } }
+  $roster[$mk] = $map; $present[$mk] = @{}
 }
 
 # Meetings: key d|c|ch|sub|b|t|k -> [ms, md]. MS on slot date (future slots kept to month end), MD on done date (to as-of).
-# k = SC class of the lead's current SC in the manpower mapping of the meeting's month.
+# k = class of the lead's current SC in that month's manpower file: 0 Active, 1 In training, 2 Resigned,
+# 3 Other SC (not in the file, or another status), 4 No SC email.
 $m = @{}; $hashCache = @{}
 function Add-M($dt, $c, $ch, $sb, $b, $t, $h, $slot) {
   $mk = $dt.ToString('yyyy-MM'); $k = 4
-  if ($h) { $hk = "$h|$t"; if ($roster[$mk].ContainsKey($hk)) { $k = $roster[$mk][$hk] } else { $k = 3 } }
+  if ($h) {
+    $k = 3
+    if ($roster[$mk].ContainsKey($h) -and $roster[$mk][$h][2] -le 2) { $k = $roster[$mk][$h][2] }
+    $present[$mk][$h] = 1   # SC appears in the MS to MD tab this month
+  }
   $key = "$($dIdx[$dt.ToString('yyyy-MM-dd')])|$c|$ch|$sb|$b|$t|$k"
   if (-not $m.ContainsKey($key)) { $m[$key] = @(0, 0) }; $m[$key][$slot]++
 }
@@ -127,6 +124,21 @@ foreach ($r in $ms) {
   $mdd = Get-Date2 $r.Last_Meeting_Done_Date
   if ($msd -and $msd -ge $startD -and $msd -le $endD) { Add-M $msd $c $ch $sb $b $t $h 0 }
   if ($mdd -and $mdd -ge $startD -and $mdd -le $asOf) { Add-M $mdd $c $ch $sb $b $t $h 1 }
+}
+
+# SC count rows mi|c|team|class: people in that month's manpower file (Active / In training / Resigned)
+# who also appear as SC on the MS to MD tab in that month. City and team come from the manpower file.
+$rost = @{}
+for ($mi = 0; $mi -lt $months.Count; $mi++) {
+  $mk = $months[$mi]
+  foreach ($h in $present[$mk].Keys) {
+    if (-not $roster[$mk].ContainsKey($h)) { continue }
+    $p = $roster[$mk][$h]; if ($p[2] -gt 2) { continue }
+    $k = "$mi|$($p[1])|$($p[0])|$($p[2])"
+    if ($rost.ContainsKey($k)) { $rost[$k]++ } else { $rost[$k] = 1 }
+  }
+  $a = 0; $rr = 0; foreach ($kk in $rost.Keys) { if ($kk -like "$mi|*|0|0") { $a += $rost[$kk] } elseif ($kk -like "$mi|*|0|2") { $rr += $rost[$kk] } }
+  Write-Host "$mk SCs (Field): active $a + resigned $rr (from $($rosterFrom[$mi]) file, present in MS to MD tab)"
 }
 
 # BQL tab: key d|c|ch|sub|b -> [SUM(bill_qualified), SUM(lead_delivered_to_lrm)]. Rows with neither are skipped.
