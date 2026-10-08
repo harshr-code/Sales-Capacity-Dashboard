@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sales Capacity Tracker</title>
+<style>
+:root{--bg:#f6f6f3;--card:#fff;--ink:#1c1c1a;--mute:#6b6a64;--line:#e3e2dc;--head:#f1f0eb;--acc:#1f5fbf;
+--g:#1d7a48;--gbg:#e2f2e8;--a:#946000;--abg:#fbefd6;--r:#b3261e;--rbg:#fbe3e1;--na:#efeee9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141413;--card:#1d1d1b;--ink:#eceae4;--mute:#9a9891;--line:#32312e;--head:#252523;--acc:#80aaf0;
+--g:#74d39e;--gbg:#16321f;--a:#e8b75c;--abg:#3a2c10;--r:#f08b83;--rbg:#3e1c1a;--na:#262624}}
+:root[data-theme="dark"]{--bg:#141413;--card:#1d1d1b;--ink:#eceae4;--mute:#9a9891;--line:#32312e;--head:#252523;--acc:#80aaf0;
+--g:#74d39e;--gbg:#16321f;--a:#e8b75c;--abg:#3a2c10;--r:#f08b83;--rbg:#3e1c1a;--na:#262624}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:16px}
+header h1{font-size:22px;margin:4px 0 2px}
+.sub{color:var(--mute);font-size:13px}
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 16px;align-items:end}
+label{display:flex;flex-direction:column;font-size:11px;color:var(--mute);gap:3px;text-transform:uppercase;letter-spacing:.03em}
+select,input{font:inherit;font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 7px;min-height:32px}
+input[type=number]{width:70px}
+.lever{background:#fff7c2;color:#1a3fa0;font-weight:600}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .lever{background:#3d3612;color:#9fc0ff}}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.tile .k{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.03em}
+.tile .v{font-size:24px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+.tile .n{font-size:12px;color:var(--mute)}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0}
+section h2{font-size:17px;margin:0 0 4px}
+.def{color:var(--mute);font-size:12.5px;margin:0 0 10px}
+.read{border-left:3px solid var(--acc);padding:6px 10px;margin:0 0 12px;font-size:13px;background:var(--head);border-radius:0 6px 6px 0}
+.read p{margin:2px 0}
+.sf{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 10px}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}
+th,td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{background:var(--head);font-weight:600;font-size:12px;color:var(--mute);position:sticky;top:0}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:inherit}
+tr{background:var(--card)}
+tr.pan td{font-weight:650;background:var(--head)}
+tr.sel td{outline:0}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover td{background:var(--head)}
+.g{color:var(--g);background:var(--gbg)!important}
+.a{color:var(--a);background:var(--abg)!important}
+.r{color:var(--r);background:var(--rbg)!important}
+.lo{color:var(--mute);font-style:italic}
+.pend{background:repeating-linear-gradient(45deg,var(--na),var(--na) 6px,transparent 6px,transparent 12px);color:var(--mute);text-align:center}
+.fut{color:var(--line)}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;font-weight:600}
+.note{font-size:12px;color:var(--mute);margin-top:8px}
+.banner{background:var(--abg);color:var(--a);border-radius:8px;padding:8px 12px;font-size:13px;margin:0 0 10px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-top:8px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:var(--c)}
+#err{display:none;color:var(--r);padding:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Sales Capacity Tracker</h1>
+  <div class="sub" id="asof">Loading…</div>
+</header>
+
+<div class="bar">
+  <label>City<select id="fCity"></select></label>
+  <label>Month<select id="fMonth"></select></label>
+  <label>From<input type="date" id="fFrom"></label>
+  <label>To<input type="date" id="fTo"></label>
+  <label>Sales channel<select id="fTeam"><option value="0">Field Sales</option><option value="1">Inside Sales</option><option value="ALL">Field + Inside</option></select></label>
+  <label title="Editable lever">Meetings / SC / day<input type="number" id="fPerDay" class="lever" min="0.5" max="6" step="0.25" value="2"></label>
+  <label title="Editable lever">Working days / week<input type="number" id="fDpw" class="lever" min="1" max="7" step="1" value="6"></label>
+  <label title="Editable lever">In-training SCs<select id="fTrain" class="lever"><option value="0">Exclude from capacity</option><option value="1">Include in capacity</option></select></label>
+</div>
+
+<div id="err"></div>
+<div class="tiles" id="tiles"></div>
+
+<section id="s0">
+  <h2>0 · MTD vs MOP</h2>
+  <p class="def">MOP is day-wise from the MOP tab, summed for the same days as the actuals (selected dates within the MOP month, up to the as-of date). BQL actual from the BQL tab; MS / MD actual = Field + Inside (MOP MD is FS + Insta). Orders follow the Sales channel filter: Field Sales = FS orders with channel split; Inside Sales = IS total; Field + Inside = FS + IS total. IVR and EC Direct sit under Others.</p>
+  <div class="sf"><label>Channel<select id="f0Ch"></select></label></div>
+  <div class="read" id="r0"></div>
+  <div class="tw"><table id="t0a"></table></div>
+  <div class="tw" style="margin-top:14px"><table id="t0b"></table></div>
+  <div class="legend"><span style="--c:var(--g)">≥ 100% of MOP MTD</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80%</span></div>
+</section>
+
+<section id="s1">
+  <h2>1 · Lead sufficiency — SC capacity vs meetings scheduled</h2>
+  <p class="def">SCs from the monthly manpower mapping (Field Sales: SC / Sr SC; Inside Sales: SC). Active = 30+ days tenure on the 1st of the month; In training = under 30 days; Resigned = status Resigned (never counted in capacity). Capacity = SCs counted × meetings per SC per day × working days; across months, each month uses its own SC count. MS counted on meeting slot date up to the as-of date; slots after it shown as booked ahead. Channel filter changes MS only — capacity stays at city level.</p>
+  <div class="sf"><label>Channel<select id="f1Ch"></select></label></div>
+  <div class="read" id="r1"></div>
+  <div class="tw"><table id="t1"></table></div>
+  <div class="legend"><span style="--c:var(--g)">MS ≥ 100% of capacity</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80% — lead shortfall</span></div>
+</section>
+
+<section id="s2">
+  <h2>2 · MS → MD and SC utilisation</h2>
+  <p class="def">Selected sales channel, all lead channels, effort basis (MS on slot date, MD on done date, both within the selected dates up to the as-of date). Target MD/SC = meetings per SC per day × working days elapsed. MD/SC = MD by counted SCs ÷ SCs counted. MD is split by who did it, matched on the lead's SC email (Col E) to that month's manpower mapping: Other SC = email not in the mapping as an SC (TLs, Experience Centre, KAMs, ex-employees); No SC = blank email.</p>
+  <div class="read" id="r2"></div>
+  <div class="tw"><table id="t2"></table></div>
+  <div class="legend"><span style="--c:var(--g)">MD/SC ≥ target</span><span style="--c:var(--a)">80–100% of target</span><span style="--c:var(--r)">&lt; 80% — SCs under-utilised</span></div>
+</section>
+
+<section id="s3">
+  <h2>3 · Lead utilisation — BQL → MS cohort by lead band</h2>
+  <p class="def">Each row is a BQL month. MS columns show meetings for that month's BQL leads, by the month the meeting happened (M0 = same month, M1 = next month…). City filter applies; date range does not (cohorts run on full months).</p>
+  <div class="banner">MS cohort pending — needs lead-level BQL data with Lead_ID to join to the MS to MD tab. BQL column is live; MS cells fill in once that feed is added.</div>
+  <div class="sf"><label>Lead band<select id="f3Band"></select></label><label>Channel<select id="f3Ch"></select></label></div>
+  <div class="tw"><table id="t3"></table></div>
+</section>
+
+<section id="s4">
+  <h2>4 · MS → MD % by city and channel</h2>
+  <p class="def">MD ÷ MS within the selected dates (effort basis). Cell colour compares each city to the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below. Grey italic = fewer than 20 MS (low base). Hover a cell for MS / MD counts.</p>
+  <div class="sf"><label>Lead band<select id="f4Band"></select></label></div>
+  <div class="read" id="r4"></div>
+  <div class="tw"><table id="t4"></table></div>
+</section>
+
+<p class="note" id="foot"></p>
+</div>
+
+<script>
+let D, DI = {};
+const S = {city:'ALL', from:null, to:null, perDay:2, dpw:6, ch1:'ALL', band3:'ALL', ch3:'ALL', band4:'ALL', team:'0', train:false, ch0:'ALL'};
+const teamOk = t => S.team === 'ALL' ? t !== 2 : t == S.team;
+const teamLbl = () => ({'0': 'Field', '1': 'Inside', 'ALL': 'Field + Inside'})[S.team];
+const $ = id => document.getElementById(id);
+const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
+const f1 = n => (n == null || !isFinite(n)) ? '–' : n.toFixed(1);
+const pct = x => (x == null || !isFinite(x)) ? '–' : (x * 100).toFixed(1) + '%';
+const tone = x => !isFinite(x) ? '' : x >= 1 ? 'g' : x >= 0.8 ? 'a' : 'r';
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const monLbl = k => MON[+k.slice(5, 7) - 1] + ' ' + k.slice(0, 4);
+const dLbl = k => +k.slice(8) + ' ' + MON[+k.slice(5, 7) - 1];
+
+fetch('capacity.json?v=' + Date.now()).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(init).catch(e => { $('err').style.display = 'block'; $('err').textContent = 'Could not load data (' + e.message + ').'; });
+
+function opts(sel, list, all) {
+  sel.innerHTML = (all ? '<option value="ALL">' + all + '</option>' : '') + list.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+}
+
+function init(d) {
+  D = d; D.dates.forEach((k, i) => DI[k] = i);
+  D.asOfIdx = DI[D.asOf];
+  opts($('fCity'), D.cities.map((c, i) => [i, c]), 'All cities (PAN)');
+  opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
+  const chOpts = D.channels.map((c, i) => [i, c]);
+  opts($('f1Ch'), chOpts, 'All channels'); opts($('f0Ch'), chOpts, 'All channels');
+  $('f0Ch').onchange = e => { S.ch0 = e.target.value; render(); }; opts($('f3Ch'), chOpts, 'All channels');
+  const bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
+  opts($('f3Band'), bandOpts, 'All'); opts($('f4Band'), bandOpts, 'All');
+  ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = D.dates[D.dates.length - 1]; });
+  setMonth(D.asOf.slice(0, 7));
+  $('fCity').onchange = e => { S.city = e.target.value; render(); };
+  $('fMonth').onchange = e => { setMonth(e.target.value); render(); };
+  $('fFrom').onchange = e => { if (DI[e.target.value] != null) S.from = e.target.value; render(); };
+  $('fTo').onchange = e => { if (DI[e.target.value] != null) S.to = e.target.value; render(); };
+  $('fPerDay').oninput = e => { S.perDay = +e.target.value || 0; render(); };
+  $('fDpw').oninput = e => { S.dpw = Math.min(7, Math.max(1, +e.target.value || 6)); render(); };
+  $('f1Ch').onchange = e => { S.ch1 = e.target.value; render(); };
+  $('f3Band').onchange = e => { S.band3 = e.target.value; render(); };
+  $('f3Ch').onchange = e => { S.ch3 = e.target.value; render(); };
+  $('f4Band').onchange = e => { S.band4 = e.target.value; render(); };
+  $('fTeam').onchange = e => { S.team = e.target.value; render(); };
+  $('fTrain').onchange = e => { S.train = e.target.value === '1'; render(); };
+  const fb = D.months.map((m, i) => m !== D.rosterFrom[i] ? `${monLbl(m)} SCs use ${monLbl(D.rosterFrom[i])} mapping` : '').filter(Boolean);
+  $('asof').textContent = `Data as of ${dLbl(D.asOf)} ${D.asOf.slice(0, 4)} · refreshed ${D.generated}` + (fb.length ? ' · ' + fb.join(', ') + ' (new month file not loaded)' : '');
+  $('foot').textContent = 'Source: MS to MD tab (one row per lead: last meeting scheduled / done date, current SC) and BQL tab. 23 clusters; Delhi NCR = Delhi + Noida + Ghaziabad + Gurgaon + Faridabad. SCs from the monthly manpower mapping, matched to Col E email; October uses the September mapping until the October file is added. Leads rescheduled more than once count once, on their last meeting date.';
+  render();
+}
+
+function setMonth(m) {
+  $('fMonth').value = m;
+  const ds = D.dates.filter(k => k.startsWith(m));
+  S.from = ds[0]; S.to = ds[ds.length - 1];
+}
+
+function compute() {
+  let fi = DI[S.from], ti = DI[S.to]; if (fi > ti) [fi, ti] = [ti, fi];
+  const effTo = Math.min(ti, D.asOfIdx);
+  const nC = D.cities.length, nCh = D.channels.length;
+  const z = () => new Array(nC).fill(0);
+  const counted = k => k === 0 || (k === 1 && S.train);
+  const R = {fi, ti, effTo, ms1: z(), booked: z(), ms2: z(), md2: z(), mdK: D.cities.map(() => [0, 0, 0, 0, 0]),
+    m4s: D.cities.map(() => new Array(nCh).fill(0)), m4d: D.cities.map(() => new Array(nCh).fill(0)),
+    scDays: z(), scLeftDays: z(), cls: D.cities.map(() => [0, 0, 0])};
+  for (const [d, c, ch, b, t, k, ms, md] of D.m) {
+    if (d < fi || d > ti || !teamOk(t)) continue;
+    const past = d <= effTo;
+    if (S.ch1 === 'ALL' || ch == S.ch1) { if (past) R.ms1[c] += ms; else R.booked[c] += ms; }
+    if (past) { R.ms2[c] += ms; R.md2[c] += md; R.mdK[c][k] += md; }
+    if (past && (S.band4 === 'ALL' || b == S.band4)) { R.m4s[c][ch] += ms; R.m4d[c][ch] += md; }
+  }
+  // SC roster: days of each month inside the range (elapsed part and remaining part)
+  const pastDays = D.months.map(() => 0), leftDays = D.months.map(() => 0);
+  for (let d = fi; d <= ti; d++) { const mi = D.months.indexOf(D.dates[d].slice(0, 7)); if (d <= effTo) pastDays[mi]++; else leftDays[mi]++; }
+  R.pastTot = pastDays.reduce((a, b) => a + b, 0);
+  for (const [mi, c, t, k, n] of D.rost) {
+    if (!teamOk(t)) continue;
+    if (counted(k)) { R.scDays[c] += n * pastDays[mi]; R.scLeftDays[c] += n * leftDays[mi]; }
+    if (R.pastTot) R.cls[c][k] += n * pastDays[mi] / R.pastTot;
+    else if (leftDays[mi]) R.cls[c][k] += n * leftDays[mi] / (ti - fi + 1);
+  }
+  R.counted = counted;
+  R.wd = R.pastTot * S.dpw / 7;
+  R.wdLeft = Math.max(0, ti - Math.max(D.asOfIdx, fi - 1)) * S.dpw / 7;
+  return R;
+}
+
+// ---------- Section 0: MTD vs MOP ----------
+function render0(R, ids) {
+  const mm = D.mop && D.mop.month, nC = D.cities.length;
+  const mDays = D.dates.filter(k => k.startsWith(mm)).length;
+  const inM = d => D.dates[d].startsWith(mm);
+  const days = new Set();
+  for (let d = R.fi; d <= R.effTo; d++) if (inM(d)) days.add(+D.dates[d].slice(8));
+  if (!mm || !days.size) {
+    $('r0').innerHTML = `<p>No MOP loaded for the selected dates (MOP available for ${mm ? monLbl(mm) : '—'}).</p>`;
+    $('t0a').innerHTML = ''; $('t0b').innerHTML = ''; return;
+  }
+  const chOk = ch => S.ch0 === 'ALL' || ch == S.ch0;
+  const ordFS = S.team === '0', ordLbl = S.team === '0' ? 'Orders (Field Sales)' : S.team === '1' ? 'Orders (Inside Sales, total)' : 'Orders (Field + Inside, total)';
+  const z = () => [0, 0, 0, 0].map(() => new Array(nC).fill(0));
+  const mtd = z(), full = z(), act = z();
+  for (const [c, day, m, ch, v] of D.mop.rows) {
+    let st = m;
+    if (m === 3 || m === 4) { st = 3; if ((m === 3 && S.team === '1') || (m === 4 && S.team === '0')) continue; if (ordFS && !chOk(ch)) continue; }
+    else if (!chOk(ch)) continue;
+    full[st][c] += v; if (days.has(day)) mtd[st][c] += v;
+  }
+  for (const [d, c, ch, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && inM(d) && chOk(ch)) act[0][c] += v;
+  for (const [d, c, ch, b, t, k, ms, md] of D.m) if (d >= R.fi && d <= R.effTo && inM(d) && chOk(ch)) { act[1][c] += ms; act[2][c] += md; }
+  const left = Math.max(0, mDays - Math.max(...days));
+  const stages = ['BQL', 'MS', 'MD', ordLbl + (ordFS || S.ch0 === 'ALL' ? '' : ' — channel n/a')];
+  const s = (a, cs) => cs.reduce((x, c) => x + a[c], 0);
+  $('t0a').innerHTML = `<thead><tr><th>Stage</th><th>MOP (${monLbl(mm)})</th><th>MOP MTD</th><th>Actual MTD</th><th>% of MOP MTD</th><th>Gap to MOP MTD</th><th>Needed / day to hit MOP</th></tr></thead><tbody>` +
+    stages.map((lbl, i) => {
+      const f = s(full[i], ids), m = s(mtd[i], ids), a = i < 3 ? s(act[i], ids) : NaN, p = a / m;
+      return `<tr><td>${lbl}</td><td>${fmt(f)}</td><td>${fmt(m)}</td><td>${i < 3 ? fmt(a) : '<span class="lo">no actuals in source</span>'}</td><td class="${tone(p)}">${pct(p)}</td><td>${i < 3 ? fmt(a - m) : '–'}</td><td>${i < 3 && left ? fmt(Math.max(0, f - a) / left) : '–'}</td></tr>`;
+    }).join('') + '</tbody>';
+  const rows = ids.map(c => ({c, p: [0, 1, 2].map(i => act[i][c] / mtd[i][c])})).sort((x, y) => (isFinite(x.p[2]) ? x.p[2] : 9) - (isFinite(y.p[2]) ? y.p[2] : 9));
+  const all = D.cities.map((_, i) => i);
+  const line = (name, cs, cls) => `<tr class="${cls}"><td>${name}</td>${[0, 1, 2].map(i => { const a = s(act[i], cs), m = s(mtd[i], cs); return `<td>${fmt(a)}</td><td>${fmt(m)}</td><td class="${tone(a / m)}">${pct(a / m)}</td>`; }).join('')}<td>${fmt(s(mtd[3], cs))}</td></tr>`;
+  $('t0b').innerHTML = `<thead><tr><th rowspan="2">City</th><th colspan="3" style="text-align:center">BQL</th><th colspan="3" style="text-align:center">MS</th><th colspan="3" style="text-align:center">MD</th><th rowspan="2">Orders MOP MTD</th></tr><tr>${'<th>Actual</th><th>MOP MTD</th><th>%</th>'.repeat(3)}</tr></thead><tbody>` +
+    line('PAN', all, 'pan') + rows.map(r => line(D.cities[r.c], [r.c], S.city === 'ALL' ? 'click' : '').replace('<tr', `<tr data-c="${r.c}"`)).join('') + '</tbody>';
+  const p = [0, 1, 2].map(i => s(act[i], ids) / s(mtd[i], ids));
+  const low = rows.filter(r => r.p[2] < 0.8).map(r => D.cities[r.c] + ' ' + pct(r.p[2]));
+  $('r0').innerHTML = `<p>${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL <b>${pct(p[0])}</b> · MS <b>${pct(p[1])}</b> · MD <b>${pct(p[2])}</b> of MOP MTD${S.ch0 !== 'ALL' ? ' (' + D.channels[S.ch0] + ')' : ''}.</p>` +
+    (S.city === 'ALL' && low.length ? `<p>MD below 80% of MOP MTD: ${low.slice(0, 6).join(', ')}.</p>` : '');
+}
+
+function cityList() { return S.city === 'ALL' ? D.cities.map((_, i) => i) : [+S.city]; }
+const sum = (arr, ids) => ids.reduce((a, i) => a + arr[i], 0);
+
+function render() {
+  if (!D) return;
+  $('fFrom').value = S.from; $('fTo').value = S.to;
+  const R = compute(), ids = cityList(), all = D.cities.map((_, i) => i);
+  const pp = S.perDay, rate = pp * S.dpw / 7;
+  const futureOnly = R.fi > D.asOfIdx;
+  const tgt = pp * R.wd;
+  // aggregate a set of cities
+  const A = cs => {
+    const o = {act: 0, trn: 0, res: 0, scDays: 0, scLeftDays: 0, ms1: 0, booked: 0, ms2: 0, md2: 0, mdK: [0, 0, 0, 0, 0]};
+    cs.forEach(c => { o.act += R.cls[c][0]; o.trn += R.cls[c][1]; o.res += R.cls[c][2]; o.scDays += R.scDays[c]; o.scLeftDays += R.scLeftDays[c];
+      o.ms1 += R.ms1[c]; o.booked += R.booked[c]; o.ms2 += R.ms2[c]; o.md2 += R.md2[c]; R.mdK[c].forEach((v, k) => o.mdK[k] += v); });
+    o.sc = R.pastTot ? o.scDays / R.pastTot : 0;               // SCs counted (day-weighted across months)
+    o.cap = o.scDays * rate; o.capLeft = o.scLeftDays * rate;
+    o.mdC = o.mdK[0] + (S.train ? o.mdK[1] : 0);                 // MD by counted SCs
+    o.mdsc = o.sc ? o.mdC / o.sc : NaN;
+    return o;
+  };
+  const sel = A(ids), pan = A(all);
+  const cnt = S.train ? 'Active + training' : 'Active';
+
+  // ---------- Tiles ----------
+  $('tiles').innerHTML = [
+    [`${teamLbl()} SCs (${cnt})`, fmt(sel.sc), `${fmt(sel.trn)} in training · ${fmt(sel.res)} resigned`],
+    ['Meeting capacity', fmt(sel.cap), `${pp} / SC / day · ${f1(R.wd)} working days`],
+    [`MS (${teamLbl()})`, fmt(sel.ms2), `${pct(sel.ms2 / sel.cap)} of capacity`],
+    [`MD (${teamLbl()})`, fmt(sel.md2), `MS→MD ${pct(sel.md2 / sel.ms2)} · Other SC ${fmt(sel.mdK[3])}`],
+    ['MD per SC', f1(sel.mdsc), `target ${f1(tgt)} · ${pct(sel.mdsc / tgt)}`],
+    ['Booked ahead', fmt(sel.booked), R.wdLeft ? `slots after ${dLbl(D.asOf)}` : 'range ends before as-of'],
+  ].map(([k, v, n]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`).join('');
+
+  render0(R, ids);
+
+  // ---------- Section 1 ----------
+  const row1 = (name, o, cls) => {
+    const u = o.ms1 / o.cap;
+    return {u, html: `<tr class="${cls}"><td>${name}</td><td>${fmt(o.act)}</td><td>${fmt(o.trn)}</td><td>${fmt(o.res)}</td><td>${fmt(o.sc)}</td><td>${fmt(o.cap)}</td><td>${fmt(o.ms1)}</td><td class="${tone(u)}">${pct(u)}</td><td>${fmt(o.cap - o.ms1)}</td><td>${fmt(o.booked)}</td><td>${R.wdLeft ? fmt(o.capLeft) : '–'}</td><td>${R.wdLeft ? pct(o.booked / o.capLeft) : '–'}</td></tr>`};
+  };
+  const pan1 = row1('PAN', pan, 'pan');
+  const rows1 = ids.map(c => ({c, ...row1(D.cities[c], A([c]), S.city === 'ALL' ? 'click' : '')})).sort((a, b) => (isFinite(a.u) ? a.u : 9) - (isFinite(b.u) ? b.u : 9));
+  $('t1').innerHTML = `<thead><tr><th>City</th><th>Active SCs</th><th>In training</th><th>Resigned</th><th>SCs counted</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>Unused capacity</th><th>Booked ahead</th><th>Capacity left</th><th>Booked ÷ left</th></tr></thead><tbody>${pan1.html}${rows1.map(r => r.html.replace('<tr', `<tr data-c="${r.c}"`)).join('')}</tbody>`;
+  const short = rows1.filter(r => r.u < 0.8);
+  $('r1').innerHTML = futureOnly ? '<p>Selected range is after the as-of date — only booked-ahead slots are available.</p>' :
+    `<p>PAN MS at <b>${pct(pan1.u)}</b> of ${teamLbl()} SC capacity (${cnt} SCs)${S.ch1 !== 'ALL' ? ' — ' + D.channels[S.ch1] + ' MS only' : ''}.</p>` +
+    (S.city === 'ALL' ? `<p><b>${short.length}</b> of ${rows1.length} cities below 80% — lead shortfall: ${short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.u)).join(', ') || 'none'}.</p>` : '');
+
+  // ---------- Section 2 ----------
+  const row2 = (name, o, cls) => {
+    const a = o.mdsc / tgt;
+    return {a, conv: o.md2 / o.ms2, html: `<tr class="${cls}"><td>${name}</td><td>${fmt(o.ms2)}</td><td>${fmt(o.md2)}</td><td>${pct(o.md2 / o.ms2)}</td><td>${fmt(o.sc)}</td><td>${fmt(o.mdC)}</td><td>${f1(o.mdsc)}</td><td>${f1(tgt)}</td><td class="${tone(a)}">${pct(a)}</td><td>${fmt(o.mdK[1])}</td><td>${fmt(o.mdK[2])}</td><td>${fmt(o.mdK[3])}</td><td>${fmt(o.mdK[4])}</td></tr>`};
+  };
+  const pan2 = row2('PAN', pan, 'pan');
+  const rows2 = ids.map(c => ({c, ms: R.ms2[c], ...row2(D.cities[c], A([c]), S.city === 'ALL' ? 'click' : '')})).sort((a, b) => (isFinite(a.a) ? a.a : 9) - (isFinite(b.a) ? b.a : 9));
+  $('t2').innerHTML = `<thead><tr><th rowspan="2">City</th><th rowspan="2">Actual MS</th><th rowspan="2">Actual MD</th><th rowspan="2">MS → MD %</th><th rowspan="2">SCs counted</th><th rowspan="2">MD by counted SCs</th><th rowspan="2">MD / SC</th><th rowspan="2">Target MD / SC</th><th rowspan="2">% of target</th><th colspan="4" style="text-align:center">MD by other owners</th></tr><tr><th>In training${S.train ? ' (counted)' : ''}</th><th>Resigned SC</th><th>Other SC</th><th>No SC</th></tr></thead><tbody>${pan2.html}${rows2.map(r => r.html.replace('<tr', `<tr data-c="${r.c}"`)).join('')}</tbody>`;
+  const under = rows2.filter(r => r.a < 0.8), convLow = rows2.filter(r => r.conv < pan2.conv - 0.05 && r.ms >= 20);
+  $('r2').innerHTML = futureOnly ? '' : `<p>PAN MS→MD <b>${pct(pan2.conv)}</b>; MD per ${cnt.toLowerCase()} SC <b>${f1(pan.mdsc)}</b> vs target ${f1(tgt)} (${pct(pan2.a)}). MD by Other SC ${fmt(pan.mdK[3])} (${pct(pan.mdK[3] / pan.md2)} of MD).</p>` +
+    (S.city === 'ALL' ? `<p>MD/SC below 80% of target: <b>${under.length}</b> cities (${under.slice(0, 5).map(r => D.cities[r.c]).join(', ') || 'none'}). MS→MD more than 5pp below PAN: ${convLow.map(r => D.cities[r.c] + ' ' + pct(r.conv)).join(', ') || 'none'}.</p>` : '');
+
+  // ---------- Section 3 ----------
+  const months = D.months.filter(m => m <= D.asOf.slice(0, 7));
+  const bqlM = {}; months.forEach(m => bqlM[m] = 0);
+  const idSet = new Set(ids);
+  for (const [d, c, ch, b, v] of D.bql) {
+    if (!idSet.has(c) || (S.ch3 !== 'ALL' && ch != S.ch3) || (S.band3 !== 'ALL' && b != S.band3)) continue;
+    const m = D.dates[d].slice(0, 7); if (m in bqlM) bqlM[m] += v;
+  }
+  const L = Math.max(3, months.length);
+  $('t3').innerHTML = `<thead><tr><th>BQL month</th><th>BQL</th>${Array.from({length: L}, (_, i) => `<th>MS M${i}</th>`).join('')}<th>Total MS</th><th>BQL → MS %</th></tr></thead><tbody>` +
+    months.map((m, mi) => `<tr><td>${monLbl(m)}${m === D.asOf.slice(0, 7) ? ' (MTD)' : ''}</td><td>${fmt(bqlM[m])}</td>${Array.from({length: L}, (_, i) => mi + i < months.length ? '<td class="pend">pending</td>' : '<td class="fut"></td>').join('')}<td class="pend">pending</td><td class="pend">pending</td></tr>`).join('') + '</tbody>';
+
+  // ---------- Section 4 ----------
+  const nCh = D.channels.length;
+  const panS = new Array(nCh).fill(0), panD = new Array(nCh).fill(0);
+  all.forEach(c => { for (let k = 0; k < nCh; k++) { panS[k] += R.m4s[c][k]; panD[k] += R.m4d[c][k]; } });
+  const panTotS = panS.reduce((a, b) => a + b, 0), panTotD = panD.reduce((a, b) => a + b, 0);
+  const panR = panS.map((s, k) => panD[k] / s).concat(panTotD / panTotS);
+  const cell = (s, d, k, isPan) => {
+    const r = d / s, title = `MD ${fmt(d)} / MS ${fmt(s)}`;
+    if (!s) return `<td class="lo" title="${title}">–</td>`;
+    if (isPan) return `<td title="${title}">${pct(r)}</td>`;
+    if (s < 20) return `<td class="lo" title="${title}">${pct(r)}</td>`;
+    const diff = r - panR[k];
+    return `<td class="${diff >= 0.05 ? 'g' : diff <= -0.05 ? 'r' : ''}" title="${title}">${pct(r)}</td>`;
+  };
+  const row4 = (name, s, d, cls, isPan) => {
+    const ts = s.reduce((a, b) => a + b, 0), td = d.reduce((a, b) => a + b, 0);
+    return `<tr class="${cls}"><td>${name}</td>${s.map((x, k) => cell(x, d[k], k, isPan)).join('')}${cell(ts, td, nCh, isPan)}<td>${fmt(ts)}</td></tr>`;
+  };
+  const rows4 = ids.map(c => ({c, t: R.m4s[c].reduce((a, b) => a + b, 0)})).sort((a, b) => b.t - a.t);
+  $('t4').innerHTML = `<thead><tr><th>City</th>${D.channels.map(c => `<th>${c}</th>`).join('')}<th>Total</th><th>MS base</th></tr></thead><tbody>${row4('PAN', panS, panD, 'pan', true)}${rows4.map(r => row4(D.cities[r.c], R.m4s[r.c], R.m4d[r.c], S.city === 'ALL' ? 'click' : '', false).replace('<tr', `<tr data-c="${r.c}"`)).join('')}</tbody>`;
+  const chGap = D.channels.map((c, k) => [c, panR[k]]).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
+  $('r4').innerHTML = futureOnly ? '' : `<p>PAN MS→MD <b>${pct(panR[nCh])}</b>${S.band4 !== 'ALL' ? ' for ' + D.bands[S.band4] : ''}. By channel: ${chGap.map(x => x[0] + ' ' + pct(x[1])).join(' · ')}.</p>`;
+
+  document.querySelectorAll('tbody tr.click').forEach(tr => tr.onclick = () => { S.city = tr.dataset.c; $('fCity').value = S.city; render(); window.scrollTo({top: 0, behavior: 'smooth'}); });
+}
+</script>
+</body>
+</html>
