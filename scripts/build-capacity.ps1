@@ -136,7 +136,7 @@ if ($h1[3] -ne 'BQL' -or $h1[10] -ne 'MS' -or $h1[17] -notlike 'MD*' -or $h1[24]
 $mopRows = New-Object System.Collections.Generic.List[string]
 # block start col -> channel cols in order Digital, Referral, SolarPro, BTL, then extra cols that roll into Others
 # Others = block Total - (Digital + Referral + SolarPro + BTL), so channels always add up to the sheet's Total (covers IVR, EC Direct, rounding)
-$blocks = @(@{m = 0; s = 4; t = 3 }, @{m = 1; s = 11; t = 10 }, @{m = 2; s = 18; t = 17 }, @{m = 3; s = 26; t = 25 })
+$blocks = @(@{m = 0; s = 4; t = 3 }, @{m = 1; s = 11; t = 10 }, @{m = 2; s = 18; t = 17 })   # orders not tracked
 $chOrder = @(0, 1, 3, 2)   # Digital, Referral, SolarPro->idx3, BTL->idx2
 function Get-Num($s) { $v = 0.0; if ([double]::TryParse("$s".Trim(), [Globalization.NumberStyles]::Float, $INV, [ref]$v)) { $v } else { 0 } }
 for ($i = 3; $i -lt $ml.Count; $i++) {
@@ -148,7 +148,6 @@ for ($i = 3; $i -lt $ml.Count; $i++) {
     for ($j = 0; $j -lt 4; $j++) { $v = Get-Num $p[$bk.s + $j]; $o -= $v; if ($v) { $mopRows.Add("[$c,$day,$($bk.m),$($chOrder[$j]),$v]") } }
     if ($o) { $mopRows.Add("[$c,$day,$($bk.m),4,$o]") }
   }
-  $v = Get-Num $p[33]; if ($v) { $mopRows.Add("[$c,$day,4,5,$v]") }
 }
 # Guard against last month's MOP being tagged to a new month: day count must match the as-of month
 $maxDay = 0; for ($i = 3; $i -lt $ml.Count; $i++) { $dd = 0; if ([int]::TryParse(($ml[$i] -split ',')[1], [ref]$dd) -and $dd -gt $maxDay) { $maxDay = $dd } }
