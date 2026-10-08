@@ -131,7 +131,7 @@ tbody tr.click:hover td{background:var(--head)}
   <section>
     <h2>Lead sufficiency &amp; SC utilisation</h2>
     <p class="def">SC count (Active) = people in the selected month's manpower file (Department = selected sales channel, city from the file) with status Active or Resigned, who also appear as SC on the MS to MD tab that month; In Training / Newly Hired are not counted. Working days = days in the selected range up to the as-of date, minus Mondays (weekly off). Meeting capacity = SC count × meetings per SC per day × working days. MD = all meetings done; MD by SCs = MD done by the SCs in the SC count; MD / SC = MD by SCs ÷ SC count; target MD / SC = meetings per SC per day × working days. <b>Capacity utilisation = MD by SCs ÷ meeting capacity.</b> Actual MS → MD uses all MS and MD. Channel and sub-channel filters apply to MS and MD; capacity stays at city level.</p>
-    <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label></div>
+    <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label><label>Sort by<select id="f1Sort"><option value="u">MS ÷ capacity (low → high)</option><option value="scDesc">SC count (high → low)</option><option value="scAsc">SC count (low → high)</option></select></label></div>
     <div class="read" id="r1"></div>
     <div class="tw"><table id="t1"></table></div>
     <div class="legend"><span style="--c:var(--g)">≥ 100%</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80% (MS ÷ capacity: lead shortfall · capacity utilisation: SCs under-utilised)</span></div>
@@ -234,7 +234,7 @@ tbody tr.click:hover td{background:var(--head)}
 <script>
 let D, DI = {}, OTH;
 const S = {city:'ALL', from:null, to:null, perDay:2, team:'0', tab:'overview',
-  ch1:'ALL', sub1:'ALL', band2:'ALL', fcCh:'ALL', fcSub:'ALL', fcBand:'ALL', luCh:'ALL', luSub:'ALL', luBand:'ALL',
+  ch1:'ALL', sub1:'ALL', sort1:'u', band2:'ALL', fcCh:'ALL', fcSub:'ALL', fcBand:'ALL', luCh:'ALL', luSub:'ALL', luBand:'ALL',
   band3:'ALL', ch3:'ALL', ch0:'ALL', m0c:'2', v0c:'p'};
 const $ = id => document.getElementById(id);
 const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
@@ -308,6 +308,7 @@ function init(d) {
   on('fPerDay', v => S.perDay = +v || 0);
   on('f1Ch', v => { S.ch1 = v; S.sub1 = 'ALL'; subOpts($('f1Sub'), v); $('f1Sub').value = 'ALL'; });
   on('f1Sub', v => S.sub1 = v);
+  on('f1Sort', v => S.sort1 = v);
   on('f2Band', v => S.band2 = v);
   on('fFcCh', v => { S.fcCh = v; S.fcSub = 'ALL'; subOpts($('fFcSub'), v); $('fFcSub').value = 'ALL'; });
   on('fFcSub', v => S.fcSub = v); on('fFcBand', v => S.fcBand = v);
@@ -399,7 +400,9 @@ function renderSuff(R, ids, all, I) {
   };
   const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${fmt(o.mdSc)}</td><td>${f1(o.mdsc)}</td><td>${f1(tgt)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td></tr>`;
   const pan = A(all), sel = A(ids);
-  const rows = ids.map(c => ({c, o: A([c])})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || sortV(a.o.u, b.o.u));
+  // PAN stays on top and Other cities last; cities sorted by the Sort by filter
+  const by = {u: (a, b) => sortV(a.o.u, b.o.u), scDesc: (a, b) => b.o.sc - a.o.sc, scAsc: (a, b) => a.o.sc - b.o.sc}[S.sort1];
+  const rows = ids.map(c => ({c, o: A([c])})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || by(a, b));
   $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD by SCs</th><th>MD / SC</th><th>Target MD / SC</th><th>Capacity utilisation</th><th>Actual MS → MD</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
   const main = rows.filter(r => r.c !== OTH && r.o.sc >= 3);   // callouts skip cities with under 3 SCs
   const short = main.filter(r => r.o.u < 0.8), under = main.filter(r => r.o.a < 0.8).sort((a, b) => sortV(a.o.a, b.o.a));
