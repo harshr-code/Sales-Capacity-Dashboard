@@ -165,7 +165,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-lu">
   <section>
     <h2>Lead utilisation — month on month (effort basis)</h2>
-    <p class="def"><b>Effort basis:</b> each metric is counted in the month it happened — not by the month the lead was BQL'd. Months in columns, metrics in rows: BQL on BQL date, MS on meeting slot date, MD on meeting done date. City and sales channel from the top filter (sales channel applies to MS / MD only). The date range does not apply here; the current month runs to the as-of date, and the LMTD column shows the previous month for the same days.</p>
+    <p class="def"><b>Effort basis:</b> each metric is counted in the month it happened — not by the month the lead was BQL'd. One row per month: BQL on BQL date, MS on meeting slot date, MD on meeting done date. City and sales channel from the top filter (sales channel applies to MS / MD only). The date range does not apply here; the current month runs to the as-of date.</p>
     <div class="sf"><label>Channel<select id="fLuCh"></select></label><label>Sub-channel<select id="fLuSub"></select></label><label>Lead score band<select id="fLuBand"></select></label></div>
     <div class="read" id="rLu"></div>
     <div class="tw"><table id="tLu"></table></div>
@@ -462,28 +462,19 @@ function renderFunnelCity(R) {
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) if (d >= R.fi && d <= R.effTo && teamOk(t) && ok(ch, sb, b)) { M[c] += ms; Dn[c] += md; }
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pan = {b: sum(B), l: sum(L), s: sum(M), d: sum(Dn)};
-  const cols = [{n: 'PAN', o: pan, pan: true}].concat(
+  // one row per city (PAN first), funnel stages across
+  const lines = [{n: 'PAN', o: pan, pan: true}].concat(
     (S.city === 'ALL' ? D.cities.map((_, i) => i) : [+S.city]).map(c => ({n: D.cities[c], c, o: {b: B[c], l: L[c], s: M[c], d: Dn[c]}})));
-  const rows = [
-    ['BQL', o => fmt(o.b)],
-    ['LS LRM', o => lrmOn ? fmt(o.l) : '–'],
-    ['MS', o => fmt(o.s)],
-    ['MD', o => fmt(o.d)],
-    ['BQL → LS LRM', null, o => lrmOn ? [o.l / o.b, o.b] : [NaN, 0]],
-    ['LS LRM → MS', null, o => lrmOn ? [o.s / o.l, o.l] : [NaN, 0]],
-    ['MS → MD', null, o => [o.d / o.s, o.s]],
-    ['BQL → MD', null, o => [o.d / o.b, o.b]],
-  ];
-  const cell = (row, col) => {
-    if (row[1]) return `<td${col.pan ? ' style="font-weight:650"' : ''}>${row[1](col.o)}</td>`;
-    const [r, base] = row[2](col.o), [pr] = row[2](pan);
-    if (col.pan) return `<td style="font-weight:650">${pct(r)}</td>`;
-    if (!isFinite(r)) return '<td class="lo">–</td>';
-    if (base < 20) return `<td class="lo">${pct(r)}</td>`;
-    return `<td class="${toneVs(r, pr)}">${pct(r)}</td>`;
+  const cnt = [o => fmt(o.b), o => lrmOn ? fmt(o.l) : '–', o => fmt(o.s), o => fmt(o.d)];
+  const rts = [o => lrmOn ? [o.l / o.b, o.b] : [NaN, 0], o => lrmOn ? [o.s / o.l, o.l] : [NaN, 0], o => [o.d / o.s, o.s], o => [o.d / o.b, o.b]];
+  const rcell = (f, ln, j) => {
+    const [r, base] = f(ln.o), [pr] = f(pan), sep = j === 0 ? 'sep ' : '';
+    if (ln.pan || !isFinite(r)) return `<td class="${sep}${isFinite(r) ? '' : 'lo'}">${pct(r)}</td>`;
+    if (base < 20) return `<td class="${sep}lo">${pct(r)}</td>`;
+    return `<td class="${sep}${toneVs(r, pr)}">${pct(r)}</td>`;
   };
-  $('tFc').innerHTML = `<thead><tr><th>Stage</th>${cols.map(c => `<th${c.c === OTH ? ' class="lo"' : ''}>${c.n}</th>`).join('')}</tr></thead><tbody>` +
-    rows.map((row, i) => `<tr${i === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td>${row[0]}</td>${cols.map(c => cell(row, c)).join('')}</tr>`).join('') + '</tbody>';
+  $('tFc').innerHTML = `<thead><tr><th>City</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>MS → MD</th><th>BQL → MD</th></tr></thead><tbody>` +
+    lines.map(ln => `<tr class="${ln.pan ? 'pan' : rowCls(ln.c)}"${dc(ln.c)}><td>${ln.n}</td>${cnt.map(f => `<td>${f(ln.o)}</td>`).join('')}${rts.map((f, j) => rcell(f, ln, j)).join('')}</tr>`).join('') + '</tbody>';
   const scope = [S.fcSub !== 'ALL' ? D.subs[S.fcSub] : S.fcCh !== 'ALL' ? D.channels[S.fcCh] : 'all channels', S.fcBand === 'ALL' ? 'all lead scores' : D.bands[S.fcBand], teamLbl() + ' MS / MD'].join(' · ');
   const ranked = D.cities.map((n, c) => ({n, c, r: Dn[c] / B[c]})).filter(x => x.c !== OTH && B[x.c] >= 20 && isFinite(x.r)).sort((a, b) => a.r - b.r);
   $('rFc').innerHTML = `<p>${scope} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: PAN BQL → MD <b>${pct(pan.d / pan.b)}</b>, MS → MD ${pct(pan.d / pan.s)}${lrmOn ? `, BQL → LS LRM ${pct(pan.l / pan.b)}` : ''}.</p>` +
@@ -505,14 +496,12 @@ function renderLU(ids, I) {
   };
   for (const [d, c, ch, sb, b, v] of D.bql) if (idSet.has(c) && ok(ch, sb, b)) add('b', d, v);
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) if (idSet.has(c) && teamOk(t) && ok(ch, sb, b)) { add('s', d, ms); add('d', d, md); }
-  const show = lm ? [...cols.slice(0, -1), lm, cols[cols.length - 1]] : cols;
-  const rowsDef = [['BQL', x => fmt(x.b)], ['MS', x => fmt(x.s)], ['MD', x => fmt(x.d)],
-    ['BQL → MS %', x => pct(x.s / x.b)], ['MS → MD %', x => pct(x.d / x.s)], ['BQL → MD %', x => pct(x.d / x.b)]];
-  $('tLu').innerHTML = `<thead><tr><th>Metric (effort basis) ↓ · Month →</th>${show.map(x => `<th${x === lm ? ' class="lo"' : ''}>${x.lbl}</th>`).join('')}</tr></thead><tbody>` +
-    rowsDef.map(([n, f], i) => `<tr${i === 3 ? ' style="border-top:2px solid var(--line)"' : ''}><td>${n}</td>${show.map(x => `<td>${f(x)}</td>`).join('')}</tr>`).join('') + '</tbody>';
+  // one row per month, metrics across
+  $('tLu').innerHTML = `<thead><tr><th>Month</th><th>BQL</th><th>MS</th><th>MD</th><th class="sep">BQL → MS</th><th>MS → MD</th></tr></thead><tbody>` +
+    cols.map(x => `<tr><td>${x.lbl}</td><td>${fmt(x.b)}</td><td>${fmt(x.s)}</td><td>${fmt(x.d)}</td><td class="sep">${pct(x.s / x.b)}</td><td>${pct(x.d / x.s)}</td></tr>`).join('') + '</tbody>';
   const cur = cols[cols.length - 1], chg = (a, b) => b ? ((a / b - 1) * 100).toFixed(1) + '%' : '–';
   const sc = [S.city === 'ALL' ? 'PAN' : D.cities[+S.city], S.luSub !== 'ALL' ? D.subs[S.luSub] : S.luCh !== 'ALL' ? D.channels[S.luCh] : 'all channels', S.luBand === 'ALL' ? 'all lead scores' : D.bands[S.luBand]].join(' · ');
-  $('rLu').innerHTML = lm ? `<p>${sc}: ${monLbl(curM)} MTD vs LMTD — BQL ${chg(cur.b, lm.b)}, MS ${chg(cur.s, lm.s)}, MD ${chg(cur.d, lm.d)}. BQL → MD ${pct(cur.d / cur.b)} vs ${pct(lm.d / lm.b)} LMTD.</p>` : `<p>${sc}.</p>`;
+  $('rLu').innerHTML = `<p>${sc} · effort basis. ${monLbl(curM)} MTD: BQL → MS ${pct(cur.s / cur.b)}, MS → MD ${pct(cur.d / cur.s)}.</p>`;
   I.lu = lm ? {cur, lm, chg, curM} : null;
 }
 
