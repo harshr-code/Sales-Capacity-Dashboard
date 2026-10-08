@@ -99,7 +99,6 @@ tbody tr.click:hover td{background:var(--head)}
     <button data-t="funnel">Funnel × LQI × Channel</button>
     <button data-t="fcity">Funnel × LQI × City</button>
     <button data-t="lu">Lead utilisation</button>
-    <button data-t="subch">Sub-channels</button>
     <button data-t="cohort">BQL cohort</button>
     <button data-t="mop">MOP tracking</button>
   </nav>
@@ -172,20 +171,6 @@ tbody tr.click:hover td{background:var(--head)}
   </section>
 </div>
 
-<!-- SUB-CHANNELS -->
-<div class="tab" id="t-subch">
-  <section>
-    <h2>Channel and sub-channel view — BQL, MS, MD and MS → MD %</h2>
-    <p class="def">Click a channel to drop down its sub-channels (Col D of the MS to MD and BQL tabs); click again to close. Selected dates and city apply to all columns; sales channel applies to MS / MD only.</p>
-    <div class="sf"><label>Lead score band<select id="f5Band"></select></label></div>
-    <div class="read" id="r5"></div>
-    <div class="tw"><table id="t5"></table></div>
-    <h3 id="h5b">By city</h3>
-    <div class="sf"><label>Show<select id="f5M"><option value="r">MS → MD %</option><option value="s">MS</option><option value="d">MD</option></select></label></div>
-    <div class="tw"><table id="t5b"></table></div>
-    <div class="note"><b>BTL Referral</b> = referral leads sourced by BTL; counted under BTL.</div>
-  </section>
-</div>
 
 <!-- COHORT -->
 <div class="tab" id="t-cohort">
@@ -249,7 +234,7 @@ tbody tr.click:hover td{background:var(--head)}
 <script>
 let D, DI = {}, OTH;
 const S = {city:'ALL', from:null, to:null, perDay:2, dpw:6, team:'0', tab:'overview',
-  ch1:'ALL', sub1:'ALL', band2:'ALL', fcCh:'ALL', fcSub:'ALL', fcBand:'ALL', luCh:'ALL', luSub:'ALL', luBand:'ALL', open5:null, band5:'ALL', m5:'r',
+  ch1:'ALL', sub1:'ALL', band2:'ALL', fcCh:'ALL', fcSub:'ALL', fcBand:'ALL', luCh:'ALL', luSub:'ALL', luBand:'ALL',
   band3:'ALL', ch3:'ALL', ch0:'ALL', m0c:'2', v0c:'p'};
 const $ = id => document.getElementById(id);
 const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
@@ -304,7 +289,7 @@ function init(d) {
   opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
   const chOpts = D.channels.map((c, i) => [i, c]), bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
   ['f0Ch', 'f1Ch', 'f3Ch', 'fLuCh', 'fFcCh'].forEach(id => opts($(id), chOpts, 'All channels'));
-  ['f2Band', 'f3Band', 'f5Band', 'fLuBand', 'fFcBand'].forEach(id => opts($(id), bandOpts, 'All'));
+  ['f2Band', 'f3Band', 'fLuBand', 'fFcBand'].forEach(id => opts($(id), bandOpts, 'All'));
   subOpts($('f1Sub'), 'ALL'); subOpts($('fLuSub'), 'ALL'); subOpts($('fFcSub'), 'ALL');
   ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = D.dates[D.dates.length - 1]; });
   setMonth(D.asOf.slice(0, 7));
@@ -323,7 +308,6 @@ function init(d) {
   on('fFcSub', v => S.fcSub = v); on('fFcBand', v => S.fcBand = v);
   on('fLuCh', v => { S.luCh = v; S.luSub = 'ALL'; subOpts($('fLuSub'), v); $('fLuSub').value = 'ALL'; });
   on('fLuSub', v => S.luSub = v); on('fLuBand', v => S.luBand = v);
-  on('f5Band', v => S.band5 = v); on('f5M', v => S.m5 = v);
   on('f3Band', v => S.band3 = v); on('f3Ch', v => S.ch3 = v);
   on('f0Ch', v => S.ch0 = v); on('f0cM', v => S.m0c = v); on('f0cV', v => S.v0c = v);
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.t));
@@ -355,7 +339,7 @@ function compute() {
   const nC = D.cities.length, nS = D.subs.length;
   const z = n => new Array(n).fill(0);
   const R = {fi, ti, effTo, ms1: z(nC), md1: z(nC), md1sc: z(nC), msAll: z(nC), mdAll: z(nC),
-    s5s: D.cities.map(() => z(nS)), s5d: D.cities.map(() => z(nS)), scDays: z(nC)};
+    scDays: z(nC)};
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) {
     if (d < fi || d > effTo || !teamOk(t)) continue;
     R.msAll[c] += ms; R.mdAll[c] += md;
@@ -363,7 +347,6 @@ function compute() {
       R.ms1[c] += ms; R.md1[c] += md;
       if (k === 0 || k === 2) R.md1sc[c] += md;   // MD done by the counted (Active + Resigned) SCs
     }
-    if (bandOk(b, S.band5)) { R.s5s[c][sb] += ms; R.s5d[c][sb] += md; }
   }
   // SC count = Active + Resigned (class 0 and 2), day-weighted across months in the range
   const pastDays = D.months.map(() => 0);
@@ -383,7 +366,6 @@ function render() {
   renderFunnel(R, I);
   renderFunnelCity(R);
   renderLU(ids, I);
-  renderSub(R, ids);
   renderCohort(ids);
   renderMop(R, ids);
   renderOverview(R, I);
@@ -511,53 +493,6 @@ function renderLU(ids, I) {
   const sc = [S.city === 'ALL' ? 'PAN' : D.cities[+S.city], S.luSub !== 'ALL' ? D.subs[S.luSub] : S.luCh !== 'ALL' ? D.channels[S.luCh] : 'all channels', S.luBand === 'ALL' ? 'all lead scores' : D.bands[S.luBand]].join(' · ');
   $('rLu').innerHTML = `<p>${sc} · effort basis. ${monLbl(curM)} MTD: BQL → MS ${pct(cur.s / cur.b)}, MS → MD ${pct(cur.d / cur.s)}.</p>`;
   I.lu = lm ? {cur, lm, chg, curM} : null;
-}
-
-// ---------- Sub-channels ----------
-function renderSub(R, ids) {
-  const nS = D.subs.length, open = S.open5;
-  const ms = new Array(nS).fill(0), md = new Array(nS).fill(0), bq = new Array(nS).fill(0);
-  ids.forEach(c => { for (let i = 0; i < nS; i++) { ms[i] += R.s5s[c][i]; md[i] += R.s5d[c][i]; } });
-  const idSet = new Set(ids);
-  for (const [d, c, ch, sb, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && idSet.has(c) && bandOk(b, S.band5)) bq[sb] += v;
-  const totMs = ms.reduce((a, b) => a + b, 0), totMd = md.reduce((a, b) => a + b, 0), totBq = bq.reduce((a, b) => a + b, 0);
-  const panR = totMd / totMs;
-  const subsOf = k => D.subs.map((s, i) => i).filter(i => D.subCh[i] === k && (ms[i] || md[i] || bq[i])).sort((a, b) => ms[b] - ms[a] || bq[b] - bq[a]);
-  const cells = (b, s, d) => `<td>${fmt(b)}</td><td>${pct(b / totBq)}</td><td>${fmt(s)}</td><td>${fmt(d)}</td><td class="${s >= 20 ? toneVs(d / s, panR) : 'lo'}">${pct(d / s)}</td><td>${pct(s / totMs)}</td>`;
-  let html = '';
-  D.channels.forEach((ch, k) => {
-    const subs = subsOf(k);
-    const cb = subs.reduce((a, i) => a + bq[i], 0), cs = subs.reduce((a, i) => a + ms[i], 0), cd = subs.reduce((a, i) => a + md[i], 0);
-    html += `<tr class="grp chrow" data-k="${k}" style="cursor:pointer"><td>${open === k ? '▾' : '▸'} ${ch} <span class="lo" style="font-weight:400">(${subs.length})</span></td>${cells(cb, cs, cd)}</tr>`;
-    if (open === k) html += subs.map(i => `<tr><td style="padding-left:28px">${D.subs[i]}</td>${cells(bq[i], ms[i], md[i])}</tr>`).join('');
-  });
-  $('t5').innerHTML = `<thead><tr><th>Channel</th><th>BQL</th><th>Share of BQL</th><th>MS</th><th>MD</th><th>MS → MD %</th><th>Share of MS</th></tr></thead><tbody><tr class="pan"><td>Total</td>${cells(totBq, totMs, totMd)}</tr>${html}</tbody>`;
-  document.querySelectorAll('#t5 tr.chrow').forEach(tr => tr.onclick = () => { const k = +tr.dataset.k; S.open5 = S.open5 === k ? null : k; render(); });
-  const chR = D.channels.map((c, k) => { const s = subsOf(k); const a = s.reduce((x, i) => x + ms[i], 0), b = s.reduce((x, i) => x + md[i], 0); return [c, b / a]; }).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
-  let read = `<p>${teamLbl()} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}. MS → MD by channel: ${chR.map(x => x[0] + ' ' + pct(x[1])).join(' · ')}. Click a channel to see its sub-channels.</p>`;
-  if (open != null) {
-    const rk = subsOf(open).filter(i => ms[i] >= 50).sort((a, b) => md[a] / ms[a] - md[b] / ms[b]);
-    const lbl = i => D.subs[i] + ' ' + pct(md[i] / ms[i]);
-    if (rk.length > 5) read += `<p>${D.channels[open]} — lowest MS → MD (50+ MS): ${rk.slice(0, 3).map(lbl).join(', ')}; highest: ${rk.slice(-2).reverse().map(lbl).join(', ')}.</p>`;
-    else if (rk.length) read += `<p>${D.channels[open]} — MS → MD, low to high (50+ MS): ${rk.map(lbl).join(', ')}.</p>`;
-  }
-  $('r5').innerHTML = read;
-  const cols = open == null ? D.channels.map((c, k) => ({n: c, ix: subsOf(k)})) : subsOf(open).filter(i => ms[i] > 0).slice(0, 8).map(i => ({n: D.subs[i], ix: [i]}));
-  $('h5b').textContent = open == null ? 'By city — channels' : `By city — ${D.channels[open]} sub-channels (top ${cols.length} by MS)`;
-  const sumC = (c, col, X) => col.ix.reduce((a, i) => a + X[c][i], 0);
-  const tot = col => ({s: col.ix.reduce((a, i) => a + ms[i], 0), d: col.ix.reduce((a, i) => a + md[i], 0)});
-  const colR = cols.map(col => { const t = tot(col); return t.d / t.s; });
-  const val = (s, d) => S.m5 === 's' ? fmt(s) : S.m5 === 'd' ? fmt(d) : pct(d / s);
-  const cell = (s, d, j) => {
-    if (!s && !d) return '<td class="lo">–</td>';
-    const t = `MD ${fmt(d)} / MS ${fmt(s)}`;
-    if (S.m5 !== 'r') return `<td title="${t}">${val(s, d)}</td>`;
-    if (s < 20) return `<td class="lo" title="${t}">${pct(d / s)}</td>`;
-    return `<td class="${toneVs(d / s, colR[j])}" title="${t}">${pct(d / s)}</td>`;
-  };
-  const cityRows = ids.map(c => ({c, t: cols.reduce((a, col) => a + sumC(c, col, R.s5s), 0)})).filter(x => x.t > 0).sort((a, b) => (a.c === OTH) - (b.c === OTH) || b.t - a.t);
-  $('t5b').innerHTML = cols.length ? `<thead><tr><th>City</th>${cols.map(col => `<th>${col.n}</th>`).join('')}</tr></thead><tbody><tr class="pan"><td>Total</td>${cols.map(col => { const t = tot(col); return `<td>${val(t.s, t.d)}</td>`; }).join('')}</tr>` +
-    cityRows.map(x => `<tr class="${rowCls(x.c)}"${dc(x.c)}><td>${D.cities[x.c]}</td>${cols.map((col, j) => cell(sumC(x.c, col, R.s5s), sumC(x.c, col, R.s5d), j)).join('')}</tr>`).join('') + '</tbody>' : '';
 }
 
 // ---------- Cohort (pending) ----------
