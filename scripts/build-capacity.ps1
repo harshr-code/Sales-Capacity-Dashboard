@@ -12,7 +12,7 @@ $MS_GID  = '0'
 $BQL_GID = '111764591'
 $MOP_GID = '1033353473'   # day-wise MOP for the current month (Cluster, Day, BQL | MS | MD | Order FS | Order IS blocks)
 $MS_HDR  = 'Lead_ID,City,Source_Class_Final,Source_Sub_Class_Final,Current_SC_Email,Current_Sales_Channel,Last_Meeting_Schedule_Date,Last_Meeting_Done_Date,Score,Channel'
-$BQL_HDR = 'Action_Date,CITY,Source_Class_final,Source_Sub_Class_final,bill_qualified,score,Channel Filter'
+$BQL_HDR = 'Action_Date,CITY,Source_Class_final,Source_Sub_Class_final,bill_qualified,score,lead_delivered_to_lrm,Channel Filter'
 
 # 24 main cities (Delhi NCR shown city-wise); everything else = Other cities
 $CLUSTERS = @('Delhi','Ghaziabad','Noida','Gurgaon','Faridabad','Ahmedabad','Surat','Bangalore','Hyderabad','Amravati','Nagpur','Aurangabad','Nashik','Pune','Kolhapur','Bhopal','Gwalior','Indore','Jabalpur','Jaipur','Kanpur','Lucknow','Varanasi','Chennai')
@@ -129,15 +129,18 @@ foreach ($r in $ms) {
   if ($mdd -and $mdd -ge $startD -and $mdd -le $asOf) { Add-M $mdd $c $ch $sb $b $t $h 1 }
 }
 
-# BQL: key d|c|ch|b -> SUM(bill_qualified), only rows with bill_qualified > 0
+# BQL tab: key d|c|ch|sub|b -> [SUM(bill_qualified), SUM(lead_delivered_to_lrm)]. Rows with neither are skipped.
 $bqlAgg = @{}
 foreach ($r in $bq) {
-  $v = 0; if (-not [int]::TryParse("$($r.bill_qualified)".Trim(), [ref]$v) -or $v -le 0) { continue }
+  $v = 0; [void][int]::TryParse("$($r.bill_qualified)".Trim(), [ref]$v); if ($v -lt 0) { $v = 0 }
+  $l = 0; [void][int]::TryParse("$($r.lead_delivered_to_lrm)".Trim(), [ref]$l); if ($l -lt 0) { $l = 0 }
+  if ($v -eq 0 -and $l -eq 0) { continue }
   $c = Get-CityIdx $r.CITY
   $d = Get-Date2 $r.Action_Date; if (-not $d -or $d -lt $startD -or $d -gt $endD) { continue }
   $ch = Get-ChIdx $r.'Channel Filter'
   $k = "$($dIdx[$d.ToString('yyyy-MM-dd')])|$c|$ch|$(Get-SubIdx $ch $r.Source_Class_final $r.Source_Sub_Class_final)|$(Get-Band $r.score)"
-  if ($bqlAgg.ContainsKey($k)) { $bqlAgg[$k] += $v } else { $bqlAgg[$k] = $v }
+  if (-not $bqlAgg.ContainsKey($k)) { $bqlAgg[$k] = @(0, 0) }
+  $bqlAgg[$k][0] += $v; $bqlAgg[$k][1] += $l
 }
 
 # MOP: rows [cityIdx, day, metric, chIdx, value]; metric 0 BQL, 1 MS, 2 MD (FS+Insta), 3 Order FS, 4 Order IS (ch 5 = total).
@@ -180,9 +183,9 @@ $sb = New-Object Text.StringBuilder
 [void]$sb.Append(',"months":[' + (Join-Q $months) + '],"rosterFrom":[' + (Join-Q $rosterFrom) + ']')
 [void]$sb.Append(',"rost":[' + (($rost.Keys | ForEach-Object { '[' + ($_ -replace '\|', ',') + ',' + $rost[$_] + ']' }) -join ',') + ']')
 [void]$sb.Append(',"mop":{"month":"' + $asOf.ToString('yyyy-MM') + '","rows":[' + ($mopRows -join ',') + ']}')
-[void]$sb.Append(',"bql":[' + (($bqlAgg.Keys | ForEach-Object { '[' + ($_ -replace '\|', ',') + ',' + $bqlAgg[$_] + ']' }) -join ',') + ']}')
+[void]$sb.Append(',"bql":[' + (($bqlAgg.Keys | ForEach-Object { '[' + ($_ -replace '\|', ',') + ',' + $bqlAgg[$_][0] + ',' + $bqlAgg[$_][1] + ']' }) -join ',') + ']}')
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($Out), $sb.ToString(), (New-Object Text.UTF8Encoding($false)))
 
 $totMs = 0; $totMd = 0; foreach ($v in $m.Values) { $totMs += $v[0]; $totMd += $v[1] }
-$totB = 0; foreach ($v in $bqlAgg.Values) { $totB += $v }
+$totB = 0; foreach ($v in $bqlAgg.Values) { $totB += $v[0] }
 Write-Host ("As of {0} | MS {1} | MD {2} | BQL {3} | roster months {4} | wrote {5} ({6:N0} KB)" -f $asOf.ToString('dd MMM yyyy'), $totMs, $totMd, $totB, (($months | ForEach-Object -Begin { $i = 0 } -Process { "$_<-$($rosterFrom[$i])"; $i++ }) -join ' '), $Out, ((Get-Item $Out).Length / 1KB))
