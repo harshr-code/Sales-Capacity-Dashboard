@@ -130,7 +130,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-suff">
   <section>
     <h2>Lead sufficiency &amp; SC utilisation</h2>
-    <p class="def">SC count (Active) = Active + Resigned SCs from the monthly manpower mapping for the selected sales channel (Field Sales: SC / Sr SC; Inside Sales: SC); in-training SCs (under 30 days on the 1st) are not counted. Meeting capacity = SC count × meetings per SC per day × working days elapsed. MS on meeting slot date and MD on meeting done date, within the selected dates up to the as-of date. MD / SC = MD ÷ SC count; target MD / SC = meetings per SC per day × working days elapsed. Channel and sub-channel filters apply to MS and MD; capacity stays at city level.</p>
+    <p class="def">SC count (Active) = Active + Resigned SCs from the monthly manpower mapping for the selected sales channel (Field Sales: SC / Sr SC; Inside Sales: SC); in-training SCs (under 30 days on the 1st) are not counted. Meeting capacity = SC count × meetings per SC per day × working days elapsed. MS on meeting slot date and MD on meeting done date, within the selected dates up to the as-of date. MD = all meetings done; MD by SCs = MD done by the SCs in the SC count; MD / SC = MD by SCs ÷ SC count; target MD / SC = meetings per SC per day × working days elapsed. Actual MS → MD uses all MS and MD. Channel and sub-channel filters apply to MS and MD; capacity stays at city level.</p>
     <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label></div>
     <div class="read" id="r1"></div>
     <div class="tw"><table id="t1"></table></div>
@@ -142,10 +142,10 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-funnel">
   <section>
     <h2>Funnel × LQI × Channel</h2>
-    <p class="def">Channel-wise funnel for the city selected in the top filter, for the selected lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). LS LRM = leads sent to LRM (BQL tab, lead_delivered_to_lrm). BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. Conversion cells are coloured against the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below.</p>
+    <p class="def">Channel-wise funnel for the city selected in the top filter, for the selected lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). LS LRM = leads sent to LRM (BQL tab, lead_delivered_to_lrm), Digital only. BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. Conversion cells are coloured against the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below.</p>
     <div class="sf"><label>Lead score band<select id="f2Band"></select></label></div>
     <div id="funnelBody"></div>
-    <div class="note"><b>BQL → LS LRM above 100%</b> is expected for Referral, BTL, SolarPro and Others: leads from these channels reach LRM without bill qualification, so LS LRM includes non-BQL leads.</div>
+    <div class="note"><b>LS LRM is shown for Digital only.</b> Referral, BTL, SolarPro and Others leads reach LRM without bill qualification, so their LS LRM is not comparable to BQL.</div>
   </section>
 </div>
 
@@ -220,9 +220,9 @@ tbody tr.click:hover td{background:var(--head)}
       <dt>Channels</dt>
       <dd><b>Digital</b> — Digital sources only (Google, Meta, organic, inbound and other digital sub-sources).<br><b>Referral</b> — referral leads excluding BTL-sourced referrals.<br><b>BTL</b> — BTL activities, including <b>BTL Referral</b>.<br><b>SolarPro</b> — SolarPro partner leads (Lead Model, Sales Model).<br><b>Others</b> — all sources other than Digital, Referral, SolarPro and BTL: Cold Marketing / Discom data, newspaper, Experience Centre, Affiliate, IVR and untagged.<br>Channel and sub-channel are applied the same way in the BQL and MS to MD tabs.</dd>
       <dt>Funnel stages</dt>
-      <dd><b>BQL</b> = SUM(bill_qualified). <b>LS LRM</b> = leads sent to LRM, SUM(lead_delivered_to_lrm), including leads that are not bill-qualified — so BQL → LS LRM can exceed 100% for non-Digital channels. <b>MS</b> = meeting scheduled (slot date), <b>MD</b> = meeting done (done date). Effort basis: each stage is counted on its own date. The source holds the last meeting per lead, so a lead rescheduled more than once counts once, on its latest date.</dd>
+      <dd><b>BQL</b> = SUM(bill_qualified). <b>LS LRM</b> = leads sent to LRM, SUM(lead_delivered_to_lrm), shown for Digital only, as other channels' leads reach LRM without bill qualification. <b>MS</b> = meeting scheduled (slot date), <b>MD</b> = meeting done (done date). Effort basis: each stage is counted on its own date. The source holds the last meeting per lead, so a lead rescheduled more than once counts once, on its latest date.</dd>
       <dt>SC count and capacity</dt>
-      <dd>From the monthly manpower mapping, matched on SC email. Field Sales = Department Field sales, Designation SC / Sr SC; Inside Sales = Department Inside sales, Designation SC. <b>SC count (Active)</b> = Active + Resigned SCs in that month's mapping; SCs under 30 days' tenure on the 1st of the month (in training) are excluded. Meeting capacity = SC count × meetings per SC per day × working days (days × working days per week ÷ 7); defaults 2 per day and a 6-day week, editable in the filter bar. MD / SC = MD ÷ SC count; MD includes meetings by all owners (SCs, TLs, Experience Centre staff and others) on leads of the selected sales channel.</dd>
+      <dd>From the monthly manpower mapping, matched on SC email. Field Sales = Department Field sales, Designation SC / Sr SC; Inside Sales = Department Inside sales, Designation SC. <b>SC count (Active)</b> = Active + Resigned SCs in that month's mapping; SCs under 30 days' tenure on the 1st of the month (in training) are excluded. Meeting capacity = SC count × meetings per SC per day × working days (days × working days per week ÷ 7); defaults 2 per day and a 6-day week, editable in the filter bar. MD / SC = MD done by the counted SCs ÷ SC count. MD by TLs, Experience Centre staff, KAMs, in-training SCs and others stays in the MD total and MS → MD, but not in MD / SC.</dd>
       <dt>Lead score bands (LQI)</dt>
       <dd>Excellent 9–10 · Good 7–9 · Average 5–7 · Poor below 5 (a score of 9 falls in Good, 7 in Average). Leads without a score count under All only.</dd>
       <dt>Colour rules</dt>
@@ -340,12 +340,15 @@ function compute() {
   const effTo = Math.min(ti, D.asOfIdx);
   const nC = D.cities.length, nS = D.subs.length;
   const z = n => new Array(n).fill(0);
-  const R = {fi, ti, effTo, ms1: z(nC), md1: z(nC), msAll: z(nC), mdAll: z(nC),
+  const R = {fi, ti, effTo, ms1: z(nC), md1: z(nC), md1sc: z(nC), msAll: z(nC), mdAll: z(nC),
     s5s: D.cities.map(() => z(nS)), s5d: D.cities.map(() => z(nS)), scDays: z(nC)};
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) {
     if (d < fi || d > effTo || !teamOk(t)) continue;
     R.msAll[c] += ms; R.mdAll[c] += md;
-    if ((S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) { R.ms1[c] += ms; R.md1[c] += md; }
+    if ((S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) {
+      R.ms1[c] += ms; R.md1[c] += md;
+      if (k === 0 || k === 2) R.md1sc[c] += md;   // MD done by the counted (Active + Resigned) SCs
+    }
     if (bandOk(b, S.band5)) { R.s5s[c][sb] += ms; R.s5d[c][sb] += md; }
   }
   // SC count = Active + Resigned (class 0 and 2), day-weighted across months in the range
@@ -376,17 +379,17 @@ function render() {
 function renderSuff(R, ids, all, I) {
   const rate = S.perDay * S.dpw / 7, tgt = S.perDay * R.wd;
   const A = cs => {
-    const o = {scDays: 0, ms: 0, md: 0, msAll: 0, mdAll: 0};
-    cs.forEach(c => { o.scDays += R.scDays[c]; o.ms += R.ms1[c]; o.md += R.md1[c]; o.msAll += R.msAll[c]; o.mdAll += R.mdAll[c]; });
+    const o = {scDays: 0, ms: 0, md: 0, mdSc: 0, msAll: 0, mdAll: 0};
+    cs.forEach(c => { o.scDays += R.scDays[c]; o.ms += R.ms1[c]; o.md += R.md1[c]; o.mdSc += R.md1sc[c]; o.msAll += R.msAll[c]; o.mdAll += R.mdAll[c]; });
     o.sc = R.pastTot ? o.scDays / R.pastTot : 0;
     o.cap = o.scDays * rate; o.u = o.ms / o.cap;
-    o.mdsc = o.sc ? o.md / o.sc : NaN; o.a = o.mdsc / tgt; o.conv = o.md / o.ms;
+    o.mdsc = o.sc ? o.mdSc / o.sc : NaN; o.a = o.mdsc / tgt; o.conv = o.md / o.ms;
     return o;
   };
-  const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${f1(o.mdsc)}</td><td>${f1(tgt)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td></tr>`;
+  const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${fmt(o.mdSc)}</td><td>${f1(o.mdsc)}</td><td>${f1(tgt)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td></tr>`;
   const pan = A(all), sel = A(ids);
   const rows = ids.map(c => ({c, o: A([c])})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || sortV(a.o.u, b.o.u));
-  $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD / SC</th><th>Target MD / SC</th><th>% of target</th><th>Actual MS → MD</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
+  $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD by SCs</th><th>MD / SC</th><th>Target MD / SC</th><th>% of target</th><th>Actual MS → MD</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
   const main = rows.filter(r => r.c !== OTH && r.o.sc >= 3);   // callouts skip cities with under 3 SCs
   const short = main.filter(r => r.o.u < 0.8), under = main.filter(r => r.o.a < 0.8).sort((a, b) => sortV(a.o.a, b.o.a));
   const filt = S.sub1 !== 'ALL' ? D.subs[S.sub1] : S.ch1 !== 'ALL' ? D.channels[S.ch1] : '';
@@ -415,12 +418,14 @@ function renderFunnel(R, I) {
   }
   const tot = o => ['b', 'l', 's', 'd'].forEach(k => o[k].push(o[k].reduce((a, v) => a + v, 0)));
   tot(city); tot(pan);
-  const rates = (o, k) => [o.l[k] / o.b[k], o.s[k] / o.l[k], o.d[k] / o.s[k], o.d[k] / o.b[k]];
+  // LS LRM is tracked for Digital only (other channels reach LRM without bill qualification)
+  const lrmOk = k => k === 0;
+  const rates = (o, k) => [lrmOk(k) ? o.l[k] / o.b[k] : NaN, lrmOk(k) ? o.s[k] / o.l[k] : NaN, o.d[k] / o.s[k], o.d[k] / o.b[k]];
   const names = D.channels.concat('Total');
   const line = (o, k, isPan, cls) => {
     const r = rates(o, k), p = rates(pan, k);
     const cells = r.map((x, j) => `<td class="${j === 0 ? 'sep ' : ''}${isPan ? '' : toneVs(x, p[j])}">${pct(x)}</td>`).join('');
-    return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(o.b[k])}</td><td>${fmt(o.l[k])}</td><td>${fmt(o.s[k])}</td><td>${fmt(o.d[k])}</td>${cells}</tr>`;
+    return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(o.b[k])}</td><td>${lrmOk(k) ? fmt(o.l[k]) : '–'}</td><td>${fmt(o.s[k])}</td><td>${fmt(o.d[k])}</td>${cells}</tr>`;
   };
   const head = `<thead><tr><th>Channel</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>MS → MD</th><th>BQL → MD</th></tr></thead>`;
   const body = D.channels.map((_, k) => line(city, k, false, '')).join('') + line(city, nCh, false, 'pan') +
