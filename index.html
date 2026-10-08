@@ -80,12 +80,20 @@ tbody tr.click:hover td{background:var(--head)}
 
 <section id="s0">
   <h2>0 · MTD vs MOP</h2>
-  <p class="def">MOP is day-wise from the MOP tab, summed for the same days as the actuals (selected dates within the MOP month, up to the as-of date). BQL actual from the BQL tab; MS / MD actual = Field + Inside (MOP MD is FS + Insta). Orders follow the Sales channel filter: Field Sales = FS orders with channel split; Inside Sales = IS total; Field + Inside = FS + IS total. IVR and EC Direct sit under Others.</p>
+  <p class="def">MOP is day-wise from the MOP tab, summed for the same days as the actuals (selected dates within the MOP month, up to the as-of date). BQL actual from the BQL tab; MS / MD actual = Field + Inside (MOP MD is FS + Insta). IVR sits under Others.</p>
   <div class="sf"><label>Channel<select id="f0Ch"></select></label></div>
   <div class="read" id="r0"></div>
   <div class="tw"><table id="t0a"></table></div>
   <div class="tw" style="margin-top:14px"><table id="t0b"></table></div>
   <div class="legend"><span style="--c:var(--g)">≥ 100% of MOP MTD</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80%</span></div>
+</section>
+
+<section id="s0c">
+  <h2>0b · MS / MD vs MOP by city and channel</h2>
+  <p class="def">Actual vs MOP for the selected dates (within the MOP month, up to the as-of date). Actual = Field + Inside. Colour on % of MOP: green ≥ 100%, amber 80–100%, red &lt; 80%.</p>
+  <div class="sf"><label>Metric<select id="f0cM"><option value="2">MD</option><option value="1">MS</option></select></label><label>Show<select id="f0cV"><option value="p">% of MOP</option><option value="a">Actual / MOP</option></select></label></div>
+  <div class="read" id="r0c"></div>
+  <div class="tw"><table id="t0c"></table></div>
 </section>
 
 <section id="s1">
@@ -126,7 +134,7 @@ tbody tr.click:hover td{background:var(--head)}
 
 <script>
 let D, DI = {};
-const S = {city:'ALL', from:null, to:null, perDay:2, dpw:6, ch1:'ALL', band3:'ALL', ch3:'ALL', band4:'ALL', team:'0', train:false, ch0:'ALL'};
+const S = {city:'ALL', from:null, to:null, perDay:2, dpw:6, ch1:'ALL', band3:'ALL', ch3:'ALL', band4:'ALL', team:'0', train:false, ch0:'ALL', m0c:'2', v0c:'p'};
 const teamOk = t => S.team === 'ALL' ? t !== 2 : t == S.team;
 const teamLbl = () => ({'0': 'Field', '1': 'Inside', 'ALL': 'Field + Inside'})[S.team];
 const $ = id => document.getElementById(id);
@@ -152,7 +160,9 @@ function init(d) {
   opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
   const chOpts = D.channels.map((c, i) => [i, c]);
   opts($('f1Ch'), chOpts, 'All channels'); opts($('f0Ch'), chOpts, 'All channels');
-  $('f0Ch').onchange = e => { S.ch0 = e.target.value; render(); }; opts($('f3Ch'), chOpts, 'All channels');
+  $('f0Ch').onchange = e => { S.ch0 = e.target.value; render(); };
+  $('f0cM').onchange = e => { S.m0c = e.target.value; render(); };
+  $('f0cV').onchange = e => { S.v0c = e.target.value; render(); }; opts($('f3Ch'), chOpts, 'All channels');
   const bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
   opts($('f3Band'), bandOpts, 'All'); opts($('f4Band'), bandOpts, 'All');
   ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = D.dates[D.dates.length - 1]; });
@@ -221,38 +231,60 @@ function render0(R, ids) {
   const days = new Set();
   for (let d = R.fi; d <= R.effTo; d++) if (inM(d)) days.add(+D.dates[d].slice(8));
   if (!mm || !days.size) {
-    $('r0').innerHTML = `<p>No MOP loaded for the selected dates (MOP available for ${mm ? monLbl(mm) : '—'}).</p>`;
-    $('t0a').innerHTML = ''; $('t0b').innerHTML = ''; return;
+    const msg = `<p>No MOP loaded for the selected dates (MOP available for ${mm ? monLbl(mm) : '—'}).</p>`;
+    $('r0').innerHTML = msg; $('r0c').innerHTML = msg;
+    $('t0a').innerHTML = ''; $('t0b').innerHTML = ''; $('t0c').innerHTML = ''; return;
   }
-  const chOk = ch => S.ch0 === 'ALL' || ch == S.ch0;
-  const ordFS = S.team === '0', ordLbl = S.team === '0' ? 'Orders (Field Sales)' : S.team === '1' ? 'Orders (Inside Sales, total)' : 'Orders (Field + Inside, total)';
-  const z = () => [0, 0, 0, 0].map(() => new Array(nC).fill(0));
-  const mtd = z(), full = z(), act = z();
-  for (const [c, day, m, ch, v] of D.mop.rows) {
-    let st = m;
-    if (m === 3 || m === 4) { st = 3; if ((m === 3 && S.team === '1') || (m === 4 && S.team === '0')) continue; if (ordFS && !chOk(ch)) continue; }
-    else if (!chOk(ch)) continue;
-    full[st][c] += v; if (days.has(day)) mtd[st][c] += v;
-  }
-  for (const [d, c, ch, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && inM(d) && chOk(ch)) act[0][c] += v;
-  for (const [d, c, ch, b, t, k, ms, md] of D.m) if (d >= R.fi && d <= R.effTo && inM(d) && chOk(ch)) { act[1][c] += ms; act[2][c] += md; }
+  const nCh = D.channels.length, chOk = ch => S.ch0 === 'ALL' || ch == S.ch0;
+  // per stage (0 BQL, 1 MS, 2 MD) x city x channel; orders (metrics 3/4) are not tracked
+  const z = () => [0, 1, 2].map(() => D.cities.map(() => new Array(nCh).fill(0)));
+  const mtdC = z(), fullC = z(), actC = z();
+  for (const [c, day, m, ch, v] of D.mop.rows) { if (m > 2) continue; fullC[m][c][ch] += v; if (days.has(day)) mtdC[m][c][ch] += v; }
+  for (const [d, c, ch, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && inM(d)) actC[0][c][ch] += v;
+  for (const [d, c, ch, b, t, k, ms, md] of D.m) if (d >= R.fi && d <= R.effTo && inM(d)) { actC[1][c][ch] += ms; actC[2][c][ch] += md; }
+  const fold = X => X.map(st => st.map(r => r.reduce((a, v, ch) => a + (chOk(ch) ? v : 0), 0)));
+  const mtd = fold(mtdC), full = fold(fullC), act = fold(actC);
   const left = Math.max(0, mDays - Math.max(...days));
-  const stages = ['BQL', 'MS', 'MD', ordLbl + (ordFS || S.ch0 === 'ALL' ? '' : ' — channel n/a')];
+  const stages = ['BQL', 'MS', 'MD'];
   const s = (a, cs) => cs.reduce((x, c) => x + a[c], 0);
   $('t0a').innerHTML = `<thead><tr><th>Stage</th><th>MOP (${monLbl(mm)})</th><th>MOP MTD</th><th>Actual MTD</th><th>% of MOP MTD</th><th>Gap to MOP MTD</th><th>Needed / day to hit MOP</th></tr></thead><tbody>` +
     stages.map((lbl, i) => {
-      const f = s(full[i], ids), m = s(mtd[i], ids), a = i < 3 ? s(act[i], ids) : NaN, p = a / m;
-      return `<tr><td>${lbl}</td><td>${fmt(f)}</td><td>${fmt(m)}</td><td>${i < 3 ? fmt(a) : '<span class="lo">no actuals in source</span>'}</td><td class="${tone(p)}">${pct(p)}</td><td>${i < 3 ? fmt(a - m) : '–'}</td><td>${i < 3 && left ? fmt(Math.max(0, f - a) / left) : '–'}</td></tr>`;
+      const f = s(full[i], ids), m = s(mtd[i], ids), a = s(act[i], ids), p = a / m;
+      return `<tr><td>${lbl}</td><td>${fmt(f)}</td><td>${fmt(m)}</td><td>${fmt(a)}</td><td class="${tone(p)}">${pct(p)}</td><td>${fmt(a - m)}</td><td>${left ? fmt(Math.max(0, f - a) / left) : '–'}</td></tr>`;
     }).join('') + '</tbody>';
   const rows = ids.map(c => ({c, p: [0, 1, 2].map(i => act[i][c] / mtd[i][c])})).sort((x, y) => (isFinite(x.p[2]) ? x.p[2] : 9) - (isFinite(y.p[2]) ? y.p[2] : 9));
   const all = D.cities.map((_, i) => i);
-  const line = (name, cs, cls) => `<tr class="${cls}"><td>${name}</td>${[0, 1, 2].map(i => { const a = s(act[i], cs), m = s(mtd[i], cs); return `<td>${fmt(a)}</td><td>${fmt(m)}</td><td class="${tone(a / m)}">${pct(a / m)}</td>`; }).join('')}<td>${fmt(s(mtd[3], cs))}</td></tr>`;
-  $('t0b').innerHTML = `<thead><tr><th rowspan="2">City</th><th colspan="3" style="text-align:center">BQL</th><th colspan="3" style="text-align:center">MS</th><th colspan="3" style="text-align:center">MD</th><th rowspan="2">Orders MOP MTD</th></tr><tr>${'<th>Actual</th><th>MOP MTD</th><th>%</th>'.repeat(3)}</tr></thead><tbody>` +
+  const line = (name, cs, cls) => `<tr class="${cls}"><td>${name}</td>${[0, 1, 2].map(i => { const a = s(act[i], cs), m = s(mtd[i], cs); return `<td>${fmt(a)}</td><td>${fmt(m)}</td><td class="${tone(a / m)}">${pct(a / m)}</td>`; }).join('')}</tr>`;
+  render0c(actC, mtdC, ids, all);
+  $('t0b').innerHTML = `<thead><tr><th rowspan="2">City</th><th colspan="3" style="text-align:center">BQL</th><th colspan="3" style="text-align:center">MS</th><th colspan="3" style="text-align:center">MD</th></tr><tr>${'<th>Actual</th><th>MOP MTD</th><th>%</th>'.repeat(3)}</tr></thead><tbody>` +
     line('PAN', all, 'pan') + rows.map(r => line(D.cities[r.c], [r.c], S.city === 'ALL' ? 'click' : '').replace('<tr', `<tr data-c="${r.c}"`)).join('') + '</tbody>';
   const p = [0, 1, 2].map(i => s(act[i], ids) / s(mtd[i], ids));
   const low = rows.filter(r => r.p[2] < 0.8).map(r => D.cities[r.c] + ' ' + pct(r.p[2]));
   $('r0').innerHTML = `<p>${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL <b>${pct(p[0])}</b> · MS <b>${pct(p[1])}</b> · MD <b>${pct(p[2])}</b> of MOP MTD${S.ch0 !== 'ALL' ? ' (' + D.channels[S.ch0] + ')' : ''}.</p>` +
     (S.city === 'ALL' && low.length ? `<p>MD below 80% of MOP MTD: ${low.slice(0, 6).join(', ')}.</p>` : '');
+}
+
+// ---------- Section 0b: MS / MD vs MOP, city x channel ----------
+function render0c(actC, mtdC, ids, all) {
+  const m = +S.m0c, nCh = D.channels.length, showA = S.v0c === 'a';
+  const A = actC[m], M = mtdC[m];
+  const cellsFor = cs => {
+    const a = new Array(nCh + 1).fill(0), p = new Array(nCh + 1).fill(0);
+    cs.forEach(c => { for (let k = 0; k < nCh; k++) { a[k] += A[c][k]; p[k] += M[c][k]; a[nCh] += A[c][k]; p[nCh] += M[c][k]; } });
+    return a.map((x, k) => ({a: x, m: p[k], r: x / p[k]}));
+  };
+  const td = o => {
+    const t = `Actual ${fmt(o.a)} / MOP ${fmt(o.m)}`;
+    if (!(o.m >= 0.5)) return `<td class="lo" title="${t} (no MOP)">${o.a ? fmt(o.a) + ' / –' : '–'}</td>`;
+    return `<td class="${tone(o.r)}" title="${t}">${showA ? fmt(o.a) + ' / ' + fmt(o.m) : pct(o.r)}</td>`;
+  };
+  const line = (name, cs, cls) => `<tr class="${cls}"><td>${name}</td>${cellsFor(cs).map(td).join('')}</tr>`;
+  const rows = ids.map(c => ({c, r: cellsFor([c])[nCh].r})).sort((x, y) => (isFinite(x.r) ? x.r : 9) - (isFinite(y.r) ? y.r : 9));
+  $('t0c').innerHTML = `<thead><tr><th>City</th>${D.channels.map(c => `<th>${c}</th>`).join('')}<th>Total</th></tr></thead><tbody>` +
+    line('PAN', all, 'pan') + rows.map(r => line(D.cities[r.c], [r.c], S.city === 'ALL' ? 'click' : '').replace('<tr', `<tr data-c="${r.c}"`)).join('') + '</tbody>';
+  const pan = cellsFor(ids), lbl = m === 1 ? 'MS' : 'MD';
+  const weak = D.channels.map((c, k) => [c, pan[k].r]).filter(x => isFinite(x[1])).sort((a, b) => a[1] - b[1]);
+  $('r0c').innerHTML = `<p>${lbl} vs MOP by channel: ${weak.map(x => x[0] + ' ' + pct(x[1])).join(' · ')} · Total <b>${pct(pan[nCh].r)}</b>.</p>`;
 }
 
 function cityList() { return S.city === 'ALL' ? D.cities.map((_, i) => i) : [+S.city]; }
