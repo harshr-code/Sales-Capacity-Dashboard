@@ -37,15 +37,10 @@ input[type=number]{width:70px}
 .lever{background:var(--lev);color:var(--levink);font-weight:600}
 .ro{min-height:32px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:600}
 .ro small{font-weight:400;color:var(--mute)}
-details.ms{position:relative;text-transform:none;letter-spacing:0}
-details.ms summary{list-style:none;cursor:pointer;font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 28px 5px 9px;min-height:32px;min-width:150px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;position:relative}
-details.ms summary::-webkit-details-marker{display:none}
-details.ms summary::after{content:"▾";position:absolute;right:9px;color:var(--mute)}
-.ms-panel{position:absolute;z-index:20;top:36px;left:0;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;min-width:200px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
-.ms-opt{flex-direction:row;align-items:center;gap:8px;font-size:13px;color:var(--ink);padding:5px 6px;border-radius:4px;cursor:pointer;text-transform:none;letter-spacing:0}
-.ms-opt:hover{background:var(--head)}
-.ms-act{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:4px;padding:6px 6px 2px;font-size:12px}
-.ms-act a{color:var(--brand2);cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px;text-transform:none;letter-spacing:0}
+.chip{font:inherit;font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:5px 12px;min-height:32px;cursor:pointer}
+.chip:hover{border-color:var(--brand2)}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
 .tab{display:none}.tab.on{display:block}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:16px 0}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;border-top:3px solid var(--line)}
@@ -151,7 +146,7 @@ tbody tr.click:hover td{background:var(--head)}
   <section>
     <h2>Lead utilisation × Channel</h2>
     <p class="def">Channel-wise funnel for the city selected in the top filter (or PAN when All cities is selected), for the selected lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). LS LRM = leads sent to LRM (BQL tab, lead_delivered_to_lrm), Digital only. BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. Conversion cells are coloured against the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below.</p>
-    <div class="sf"><div class="lbl">Lead score band<details class="ms" id="f2Band" data-key="band2"></details></div></div>
+    <div class="sf"><div class="lbl">Lead score band<div class="chips" id="f2Band" data-key="band2"></div></div></div>
     <div id="funnelBody"></div>
     <div class="note"><b>LS LRM is shown for Digital only.</b></div>
   </section>
@@ -162,7 +157,7 @@ tbody tr.click:hover td{background:var(--head)}
   <section>
     <h2>Lead utilisation × City</h2>
     <p class="def">Funnel by city for the selected channel, sub-channel and lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. With Digital (or a Digital sub-channel) selected, the funnel includes LS LRM; for any other selection it shows BQL, MS, MD, BQL → MS, MS → MD and BQL → MD. Conversion cells are coloured against PAN: green ≥ 5pp above, red ≥ 5pp below; grey italic = base under 20. Selecting a city in the top filter shows that city next to PAN.</p>
-    <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><div class="lbl">Lead score band<details class="ms" id="fFcBand" data-key="fcBand"></details></div></div>
+    <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><div class="lbl">Lead score band<div class="chips" id="fFcBand" data-key="fcBand"></div></div></div>
     <div class="read" id="rFc"></div>
     <div class="tw"><table id="tFc"></table></div>
   </section>
@@ -175,7 +170,7 @@ tbody tr.click:hover td{background:var(--head)}
     <h2>Lead utilisation — BQL → MS cohort by lead score band</h2>
     <p class="def">Each row is a BQL month. MS columns show meetings for that month's BQL leads, by the month the meeting happened (M0 = same month, M1 = next month…). City filter applies; date range does not.</p>
     <div class="banner">MS cohort pending — needs a lead-level BQL tab (one row per BQL lead, with Lead_ID) to join to the MS to MD tab. BQL column is live; MS cells fill in once that feed is added.</div>
-    <div class="sf"><div class="lbl">Lead score band<details class="ms" id="f3Band" data-key="band3"></details></div><label>Channel<select id="f3Ch"></select></label></div>
+    <div class="sf"><div class="lbl">Lead score band<div class="chips" id="f3Band" data-key="band3"></div></div><label>Channel<select id="f3Ch"></select></label></div>
     <div class="tw"><table id="t3"></table></div>
   </section>
 </div>
@@ -249,17 +244,22 @@ const sortV = (x, y) => (isFinite(x) ? x : 9) - (isFinite(y) ? y : 9);
 const bandOk = (b, sel) => sel.has(b);
 const allBands = sel => sel.size === D.bands.length;
 const bandLbl = sel => allBands(sel) ? 'all lead scores' : [...sel].sort().map(i => D.bands[i]).join(' + ') || 'no lead score band';
+// horizontal chips: "All" + one chip per band. With All on, clicking a band selects only that band;
+// further clicks add / remove bands; removing the last band (or clicking All) goes back to All.
 function bandMulti(el) {
-  const key = el.dataset.key;
+  const key = el.dataset.key, n = D.bands.length;
   S[key] = new Set(D.bands.map((_, i) => i));
-  const sum = () => { const s = S[key]; el.querySelector('summary').textContent = allBands(s) ? 'All' : s.size ? [...s].sort().map(i => D.bands[i].split(' ')[0]).join(', ') : 'None'; };
-  el.innerHTML = `<summary></summary><div class="ms-panel">${D.bands.map((b, i) => `<label class="ms-opt"><input type="checkbox" value="${i}" checked> ${b}</label>`).join('')}<div class="ms-act"><a data-a="all">Select all</a><a data-a="none">Clear</a></div></div>`;
-  const boxes = [...el.querySelectorAll('input')];
-  boxes.forEach(cb => cb.onchange = () => { S[key] = new Set(boxes.filter(x => x.checked).map(x => +x.value)); sum(); render(); });
-  el.querySelectorAll('[data-a]').forEach(a => a.onclick = e => { e.preventDefault(); boxes.forEach(x => x.checked = a.dataset.a === 'all'); S[key] = new Set(boxes.filter(x => x.checked).map(x => +x.value)); sum(); render(); });
-  sum();
+  el.innerHTML = `<button type="button" class="chip" data-i="all">All</button>` + D.bands.map((b, i) => `<button type="button" class="chip" data-i="${i}">${b}</button>`).join('');
+  const paint = () => el.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.i === 'all' ? allBands(S[key]) : !allBands(S[key]) && S[key].has(+c.dataset.i)));
+  el.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    const s = S[key], i = c.dataset.i;
+    if (i === 'all') S[key] = new Set(D.bands.map((_, j) => j));
+    else if (allBands(s)) S[key] = new Set([+i]);
+    else { s.has(+i) ? s.delete(+i) : s.add(+i); if (!s.size || s.size === n) S[key] = new Set(D.bands.map((_, j) => j)); }
+    paint(); render();
+  });
+  paint();
 }
-document.addEventListener('click', e => document.querySelectorAll('details.ms[open]').forEach(d => { if (!d.contains(e.target)) d.removeAttribute('open'); }));
 const isMon = k => new Date(k + 'T00:00:00Z').getUTCDay() === 1;
 // today in IST (D-day): the date pickers never go beyond it
 const TODAY = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
@@ -304,7 +304,7 @@ function init(d) {
   opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
   const chOpts = D.channels.map((c, i) => [i, c]), bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
   ['f0Ch', 'f1Ch', 'f3Ch', 'fFcCh'].forEach(id => opts($(id), chOpts, 'All channels'));
-  document.querySelectorAll('details.ms').forEach(bandMulti);
+  document.querySelectorAll('.chips').forEach(bandMulti);
   subOpts($('f1Sub'), 'ALL'); subOpts($('fFcSub'), 'ALL');
   ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = maxDate(); });
   setMonth(D.asOf.slice(0, 7));
