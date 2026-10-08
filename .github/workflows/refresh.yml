@@ -1,0 +1,21 @@
+name: refresh
+on:
+  schedule:
+    - cron: '30 2-16/2 * * *'   # every 2 h, 08:00-22:00 IST
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build capacity.json
+        shell: pwsh
+        run: ./scripts/build-capacity.ps1
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add capacity.json
+          git diff --cached --quiet || (git commit -m "Data refresh $(date -u +'%F %H:%M') UTC" && git push)
