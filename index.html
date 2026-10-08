@@ -629,13 +629,16 @@ function renderMop(R, ids) {
 function renderOverview(R, I) {
   const s = I.suff, o = s.sel, scope = S.city === 'ALL' ? 'PAN' : D.cities[+S.city];
   const t = (k, v, n, cls) => `<div class="tile ${cls || ''}"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`;
-  const lu = I.lu;
+  const lu = I.lu, idSet = new Set(cityList());
+  // BQL for the same dates, cities and channel / sub-channel filter as the other tiles
+  let bqSel = 0;
+  for (const [d, c, ch, sb, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && idSet.has(c) && (S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) bqSel += v;
   $('tiles').innerHTML = [
     t(`${teamLbl()} SC count (Active)`, fmt(o.sc), `${scope} · ${f1(R.wd)} working days elapsed`),
     t('MS ÷ capacity', pct(o.u), `${fmt(o.ms)} MS vs ${fmt(o.cap)} capacity`, tone(o.u)),
     t('MD per SC', f1(o.mdsc), `target ${f1(s.tgt)} · ${pct(o.a)}`, tone(o.a)),
     t('MS → MD', pct(o.conv), `${fmt(o.md)} MD on ${fmt(o.ms)} MS`),
-    lu ? t('BQL → MD (MTD)', pct(lu.cur.d / lu.cur.b), `LMTD ${pct(lu.lm.d / lu.lm.b)}`) : '',
+    t('BQL → MD', pct(o.md / bqSel), `${fmt(o.md)} MD on ${fmt(bqSel)} BQL`),
   ].join('');
   const card = (title, tab, body) => `<div class="card"><h4>${title}<a data-go="${tab}">Open ›</a></h4>${body}</div>`;
   const list = a => a.length ? a.join(', ') : 'none';
