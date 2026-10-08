@@ -12,7 +12,7 @@ $MS_GID  = '0'
 $BQL_GID = '111764591'
 $MOP_GID = '1033353473'   # day-wise MOP for the current month (Cluster, Day, BQL | MS | MD | Order FS | Order IS blocks)
 $MS_HDR  = 'Lead_ID,City,Source_Class_Final,Source_Sub_Class_Final,Current_SC_Email,Current_Sales_Channel,Last_Meeting_Schedule_Date,Last_Meeting_Done_Date,Score,Channel'
-$BQL_HDR = 'Action_Date,CITY,Source_Class_final,bill_qualified,score,Channel Filter'
+$BQL_HDR = 'Action_Date,CITY,Source_Class_final,Source_Sub_Class_final,bill_qualified,score,Channel Filter'
 
 $CLUSTERS = @('Agra','Ahmedabad','Amravati','Aurangabad','Bangalore','Bhopal','Chennai','Coimbatore','Delhi NCR','Gwalior','Hyderabad','Indore','Jabalpur','Jaipur','Jalgaon','Kanpur','Kolhapur','Lucknow','Nagpur','Nashik','Pune','Solapur','Varanasi')
 $NCR      = @('Delhi','Noida','Ghaziabad','Gurgaon','Faridabad')
@@ -134,7 +134,8 @@ foreach ($r in $bq) {
   $v = 0; if (-not [int]::TryParse("$($r.bill_qualified)".Trim(), [ref]$v) -or $v -le 0) { continue }
   $c = Get-CityIdx $r.CITY
   $d = Get-Date2 $r.Action_Date; if (-not $d -or $d -lt $startD -or $d -gt $endD) { continue }
-  $k = "$($dIdx[$d.ToString('yyyy-MM-dd')])|$c|$(Get-ChIdx $r.'Channel Filter')|$(Get-Band $r.score)"
+  $ch = Get-ChIdx $r.'Channel Filter'
+  $k = "$($dIdx[$d.ToString('yyyy-MM-dd')])|$c|$ch|$(Get-SubIdx $ch $r.Source_Class_final $r.Source_Sub_Class_final)|$(Get-Band $r.score)"
   if ($bqlAgg.ContainsKey($k)) { $bqlAgg[$k] += $v } else { $bqlAgg[$k] = $v }
 }
 
