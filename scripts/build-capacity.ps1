@@ -11,7 +11,7 @@ $BASE    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRUlqvi5njktr8g0lpba
 $MS_GID  = '0'
 $BQL_GID = '111764591'
 $MOP_GID = '1033353473'   # day-wise MOP for the current month (Cluster, Day, BQL | MS | MD | Order FS | Order IS blocks)
-$MS_HDR  = 'Lead_ID,City,Source_Class_Final,Source_Sub_Class_Final,Current_SC_Email,Current_Sales_Channel,Last_Meeting_Schedule_Date,Last_Meeting_Done_Date,Score,Channel'
+$MS_HDR  = 'Lead_ID,City,Source_Class_Final,Source_Sub_Class_Final,Current_SC_Email,Current_Sales_Channel,First_Meeting_Schedule_Date,Last_Meeting_Done_Date,Score,Channel'
 $BQL_HDR = 'Action_Date,CITY,Source_Class_final,Source_Sub_Class_final,bill_qualified,score,lead_delivered_to_lrm,Channel Filter'
 
 # 24 main cities (Delhi NCR shown city-wise); everything else = Other cities
@@ -120,7 +120,7 @@ foreach ($r in $ms) {
   $email = "$($r.Current_SC_Email)".Trim().ToLower()
   $h = ''
   if ($email) { if (-not $hashCache.ContainsKey($email)) { $hashCache[$email] = Get-Hash $email }; $h = $hashCache[$email] }
-  $msd = Get-Date2 $r.Last_Meeting_Schedule_Date
+  $msd = Get-Date2 $r.First_Meeting_Schedule_Date   # MS counted on the lead's first meeting scheduled date
   $mdd = Get-Date2 $r.Last_Meeting_Done_Date
   if ($msd -and $msd -ge $startD -and $msd -le $endD) { Add-M $msd $c $ch $sb $b $t $h 0 }
   if ($mdd -and $mdd -ge $startD -and $mdd -le $asOf) { Add-M $mdd $c $ch $sb $b $t $h 1 }
