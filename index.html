@@ -133,11 +133,11 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-suff">
   <section>
     <h2>Lead sufficiency &amp; SC utilisation</h2>
-    <p class="def">SC count (Active) = people in the selected month's manpower file (Department = selected sales channel, city from the file) with status Active or Resigned, who also appear as SC (Col O of the Raw Data tab) on a lead with a meeting that month; In Training / Newly Hired are not counted. Working days = days in the selected range up to the as-of date, minus Mondays (weekly off). Meeting capacity = SC count × meetings per SC per day × working days. MD = all meetings done; MD / SC = MD ÷ SC count. <b>Capacity utilisation = MD ÷ meeting capacity.</b> <b>MS required at current MS → MD</b> = meeting capacity ÷ actual MS → MD, i.e. the MS needed to fill SC capacity at today's conversion; <b>MS gap</b> = MS required − MS to date (+ means more MS needed). Channel and sub-channel filters apply to MS and MD; capacity stays at city level.</p>
     <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label><label>Sort by<select id="f1Sort"><option value="u">MS ÷ capacity (low → high)</option><option value="scDesc">SC count (high → low)</option><option value="scAsc">SC count (low → high)</option></select></label></div>
     <div class="read" id="r1"></div>
     <div class="tw"><table id="t1"></table></div>
     <div class="legend"><span style="--c:var(--g)">≥ 100%</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80% (MS ÷ capacity: lead shortfall · capacity utilisation: SCs under-utilised)</span></div>
+    <div class="note">SC count = Active + Resigned SCs with meetings · Capacity = SCs × meetings / day × working days (Mondays off) · Capacity utilisation = MD ÷ capacity · MS required = capacity ÷ MS → MD.</div>
   </section>
 </div>
 
@@ -145,10 +145,9 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-funnel">
   <section>
     <h2>Lead utilisation × Channel</h2>
-    <p class="def">Channel-wise funnel for the city selected in the top filter (or PAN when All cities is selected), for the selected lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). LS LRM = leads sent to LRM (lead_delivered_to_lrm date), Digital only. BQL, LS LRM, MS and MD all follow the sales channel filter (first sales channel of the lead). Conversion cells are coloured against the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below.</p>
     <div class="sf"><div class="lbl">Lead score band<div class="chips" id="f2Band" data-key="band2"></div></div></div>
     <div id="funnelBody"></div>
-    <div class="note"><b>LS LRM is shown for Digital only.</b></div>
+    <div class="note">Effort basis (each stage on its own date) · Colours vs PAN for the same channel (±5pp) · LS LRM for Digital only.</div>
   </section>
 </div>
 
@@ -156,10 +155,10 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-fcity">
   <section>
     <h2>Lead utilisation × City</h2>
-    <p class="def">Funnel by city for the selected channel, sub-channel and lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). BQL, LS LRM, MS and MD all follow the sales channel filter (first sales channel of the lead). With Digital (or a Digital sub-channel) selected, the funnel includes LS LRM; for any other selection it shows BQL, MS, MD, BQL → MS, MS → MD and BQL → MD. Conversion cells are coloured against PAN: green ≥ 5pp above, red ≥ 5pp below; grey italic = base under 20. Selecting a city in the top filter shows that city next to PAN.</p>
     <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><div class="lbl">Lead score band<div class="chips" id="fFcBand" data-key="fcBand"></div></div></div>
     <div class="read" id="rFc"></div>
     <div class="tw"><table id="tFc"></table></div>
+    <div class="note">Effort basis · Colours vs PAN (±5pp); grey = base under 20 · LS LRM shown when Channel = Digital.</div>
   </section>
 </div>
 
@@ -168,11 +167,10 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-cohort">
   <section>
     <h2>BQL cohort — BQL → MS → MD</h2>
-    <p class="def">Cohort = BQL leads (BQL_Flag = 1) created within the selected dates; LMTD cohort = BQL leads created on the same days last month. Each later stage is counted for those same leads, by the month it happened relative to the BQL month: <b>M0</b> = same month, <b>by M1</b> = up to the next month, <b>by M2</b> = up to the month after. The LMTD columns show that cohort's progress to date (M0 = its full month, by M1 = up to today); the summary line above the table compares both cohorts at the same age. City, sales channel (first sales channel) and the filters below apply. Click ▸ to expand.</p>
     <div class="sf"><div class="lbl">Lead score band<div class="chips" id="f3Band" data-key="band3"></div></div><label>Channel<select id="f3Ch"></select></label></div>
     <div class="read" id="r3"></div>
     <div class="tw"><table id="t3"></table></div>
-    <div class="note"><b>LS LRM is shown for Digital only.</b> "–" = month not reached yet.</div>
+    <div class="note">Cohort = BQL leads created in the selected dates · M0 = same month; by M1 / by M2 = cumulative · LMTD = same days last month · Click ▸ to expand · LS LRM for Digital only · "–" = not reached yet.</div>
   </section>
 </div>
 
@@ -180,19 +178,18 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-mop">
   <section>
     <h2>BQL, MS and MD vs MOP — by city</h2>
-    <p class="def">MOP is day-wise from the MOP tab, summed for the same days as the actuals (selected dates within the MOP month, up to the as-of date). MS / MD actual = Field + Inside. MOP comparisons cover the 24 main cities only, so PAN here excludes Other cities (MOP set for Agra, Coimbatore, Jalgaon and Solapur is not included). Surat has no MOP.</p>
     <div class="sf"><label>Channel<select id="f0Ch"></select></label></div>
     <div class="read" id="r0"></div>
     <div class="tw"><table id="t0b"></table></div>
     <div class="legend"><span style="--c:var(--g)">≥ 100% of MOP MTD</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80%</span></div>
+    <div class="note">MOP summed for the same days as actuals · Main cities only · Actuals = Field + Inside.</div>
   </section>
   <section>
     <h2>MS / MD vs MOP — by city and channel</h2>
-    <p class="def">Actual vs MOP for the selected dates. Hover a cell for actual and MOP counts. "–" = no MOP set for that city and channel.</p>
     <div class="sf"><label>Metric<select id="f0cM"><option value="2">MD</option><option value="1">MS</option></select></label><label>Show<select id="f0cV"><option value="p">% of MOP</option><option value="a">Actual / MOP</option></select></label></div>
     <div class="read" id="r0c"></div>
     <div class="tw"><table id="t0c"></table></div>
-    <div class="note"><b>BTL includes BTL Referral.</b> Others = all sources other than Digital, Referral, SolarPro and BTL (incl. IVR).</div>
+    <div class="note">Hover a cell for actual / MOP · "–" = no MOP · BTL includes BTL Referral.</div>
   </section>
 </div>
 
