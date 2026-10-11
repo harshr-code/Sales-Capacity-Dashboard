@@ -133,7 +133,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-suff">
   <section>
     <h2>Lead sufficiency &amp; SC utilisation</h2>
-    <p class="def">SC count (Active) = people in the selected month's manpower file (Department = selected sales channel, city from the file) with status Active or Resigned, who also appear as SC on the MS to MD tab that month; In Training / Newly Hired are not counted. Working days = days in the selected range up to the as-of date, minus Mondays (weekly off). Meeting capacity = SC count × meetings per SC per day × working days. MD = all meetings done; MD / SC = MD ÷ SC count. <b>Capacity utilisation = MD ÷ meeting capacity.</b> <b>MS required at current MS → MD</b> = meeting capacity ÷ actual MS → MD, i.e. the MS needed to fill SC capacity at today's conversion; <b>MS gap</b> = MS required − MS to date (+ means more MS needed). Channel and sub-channel filters apply to MS and MD; capacity stays at city level.</p>
+    <p class="def">SC count (Active) = people in the selected month's manpower file (Department = selected sales channel, city from the file) with status Active or Resigned, who also appear as SC (Col O of the Raw Data tab) on a lead with a meeting that month; In Training / Newly Hired are not counted. Working days = days in the selected range up to the as-of date, minus Mondays (weekly off). Meeting capacity = SC count × meetings per SC per day × working days. MD = all meetings done; MD / SC = MD ÷ SC count. <b>Capacity utilisation = MD ÷ meeting capacity.</b> <b>MS required at current MS → MD</b> = meeting capacity ÷ actual MS → MD, i.e. the MS needed to fill SC capacity at today's conversion; <b>MS gap</b> = MS required − MS to date (+ means more MS needed). Channel and sub-channel filters apply to MS and MD; capacity stays at city level.</p>
     <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label><label>Sort by<select id="f1Sort"><option value="u">MS ÷ capacity (low → high)</option><option value="scDesc">SC count (high → low)</option><option value="scAsc">SC count (low → high)</option></select></label></div>
     <div class="read" id="r1"></div>
     <div class="tw"><table id="t1"></table></div>
@@ -208,11 +208,11 @@ tbody tr.click:hover td{background:var(--head)}
       <dt>Cities</dt>
       <dd>All leads in the source are counted. <b>Main cities (24):</b> Delhi, Ghaziabad, Noida, Gurgaon, Faridabad, Ahmedabad, Surat, Bangalore, Hyderabad, Amravati, Nagpur, Aurangabad, Nashik, Pune, Kolhapur, Bhopal, Gwalior, Indore, Jabalpur, Jaipur, Kanpur, Lucknow, Varanasi, Chennai. <b>Other cities</b> = every other city in the source (e.g. Agra, Meerut, Kota, Coimbatore, Jodhpur, Bareilly, Jalgaon, Raipur, Solapur, Vijayawada, Prayagraj, Trichy, Salem, Madurai, Visakhapatnam, Erode) plus blank / invalid city names, so PAN equals the sheet total. MOP comparisons cover the main cities only.</dd>
       <dt>Channels</dt>
-      <dd><b>Digital</b> — Digital sources only (Google, Meta, organic, inbound and other digital sub-sources).<br><b>Referral</b> — referral leads excluding BTL-sourced referrals.<br><b>BTL</b> — BTL activities, including <b>BTL Referral</b>.<br><b>SolarPro</b> — SolarPro partner leads (Lead Model, Sales Model).<br><b>Others</b> — all sources other than Digital, Referral, SolarPro and BTL: Cold Marketing / Discom data, newspaper, Experience Centre, Affiliate, IVR and untagged.<br>Channel and sub-channel are applied the same way in the BQL and MS to MD tabs.</dd>
+      <dd><b>Digital</b> — Digital sources only (Google, Meta, organic, inbound and other digital sub-sources).<br><b>Referral</b> — referral leads excluding BTL-sourced referrals.<br><b>BTL</b> — BTL activities, including <b>BTL Referral</b>.<br><b>SolarPro</b> — SolarPro partner leads (Lead Model, Sales Model).<br><b>Others</b> — all sources other than Digital, Referral, SolarPro and BTL: Cold Marketing / Discom data, newspaper, Experience Centre, Affiliate, IVR and untagged.<br>Channel = Col D and sub-channel = Col E of the Raw Data tab; Referral leads with sub-channel BTL count under BTL as BTL Referral.</dd>
       <dt>Funnel stages</dt>
-      <dd><b>BQL</b> = leads with BQL_Flag = 1, on their created date. <b>LS LRM</b> = leads sent to LRM, on the LRM date; shown for Digital only. <b>MS</b> = first meeting scheduled date; <b>MD</b> = first meeting done date — each lead counts once. Effort view (all tabs except BQL cohort): every lead's stage is counted if its date falls in the selected dates. <b>BQL cohort</b>: only BQL leads created in the selected dates, followed through LRM, MS and MD by month (M0 / M1 / M2); the LMTD cohort counts stages only up to the same day last month.</dd>
+      <dd><b>BQL</b> = leads with BQL_Flag = 1, on their created date. <b>LS LRM</b> = leads sent to LRM, on the LRM date; shown for Digital only. <b>MS</b> = first meeting scheduled date; <b>MD</b> = first meeting done date — each lead counts once. Effort view (all tabs except BQL cohort): every lead's stage is counted if its date falls in the selected dates. <b>BQL cohort</b>: only BQL leads created in the selected dates, followed through LRM, MS and MD by month (M0 / M1 / M2); the LMTD cohort (same days last month) is shown to date in the table, and at the same age in the summary line.</dd>
       <dt>SC count and capacity</dt>
-      <dd>For the selected month's manpower file: (1) Department — Field sales or Inside sales, per the sales channel filter; (2) City — from the file; (3) Status — Active, Resigned, or In Training / Newly Hired. <b>SC count (Active)</b> = Active + Resigned people who also appear as SC (Col E) on the MS to MD tab in that month. In Training / Newly Hired are not counted. Anyone owning meetings who is not in the file, or has another status (No Update, Sabbatical, To be found), is <b>Other SC</b>. Each month uses its own file; resigned SCs count for the full month. Working days = days in the range up to the as-of date minus Mondays (weekly off); the filter bar shows the number of Mondays. Meeting capacity = SC count × meetings per SC per day (default 2, editable) × working days. MD / SC = total MD ÷ SC count. Capacity utilisation = total MD ÷ meeting capacity. MS required at current MS → MD = meeting capacity ÷ MS → MD.</dd>
+      <dd>For the selected month's manpower file: (1) Department — Field sales or Inside sales, per the sales channel filter; (2) City — from the file; (3) Status — Active, Resigned, or In Training / Newly Hired. <b>SC count (Active)</b> = Active + Resigned people who also appear as SC (Col O of the Raw Data tab) on a lead with a meeting scheduled or done in that month. In Training / Newly Hired are not counted. Anyone owning meetings who is not in the file, or has another status (No Update, Sabbatical, To be found), is <b>Other SC</b>. Each month uses its own file; resigned SCs count for the full month. Working days = days in the range up to the as-of date minus Mondays (weekly off); the filter bar shows the number of Mondays. Meeting capacity = SC count × meetings per SC per day (default 2, editable) × working days. MD / SC = total MD ÷ SC count. Capacity utilisation = total MD ÷ meeting capacity. MS required at current MS → MD = meeting capacity ÷ MS → MD.</dd>
       <dt>Lead score bands (LQI)</dt>
       <dd>Excellent 9–10 · Good 7–9 · Average 5–7 · Poor below 5 (a score of 9 falls in Good, 7 in Average). Leads without a score count under All only.</dd>
       <dt>Colour rules</dt>
@@ -367,14 +367,18 @@ function compute() {
   }
   // Working days = days in the range up to the as-of date, minus Mondays (weekly off).
   // SC count is weighted by working days across the months in the range.
-  const workDays = D.months.map(() => 0);
-  R.off = 0;
+  // SC count shown uses calendar days, so a range with only a Monday still shows the SCs.
+  const workDays = D.months.map(() => 0), calDays = D.months.map(() => 0);
+  R.off = 0; R.scCal = z(nC);
   for (let d = fi; d <= effTo; d++) {
+    const mi = D.months.indexOf(D.dates[d].slice(0, 7));
+    calDays[mi]++;
     if (isMon(D.dates[d])) { R.off++; continue; }
-    workDays[D.months.indexOf(D.dates[d].slice(0, 7))]++;
+    workDays[mi]++;
   }
   R.pastTot = workDays.reduce((a, b) => a + b, 0);
-  for (const [mi, c, t, k, n] of D.rost) if (teamOk(t) && counted(k)) R.scDays[c] += n * workDays[mi];
+  R.calTot = calDays.reduce((a, b) => a + b, 0);
+  for (const [mi, c, t, k, n] of D.rost) if (teamOk(t) && counted(k)) { R.scDays[c] += n * workDays[mi]; R.scCal[c] += n * calDays[mi]; }
   R.wd = R.pastTot;
   return R;
 }
@@ -398,9 +402,9 @@ function render() {
 function renderSuff(R, ids, all, I) {
   const rate = S.perDay, tgt = S.perDay * R.wd;
   const A = cs => {
-    const o = {scDays: 0, ms: 0, md: 0, mdSc: 0, msAll: 0, mdAll: 0};
-    cs.forEach(c => { o.scDays += R.scDays[c]; o.ms += R.ms1[c]; o.md += R.md1[c]; o.mdSc += R.md1sc[c]; o.msAll += R.msAll[c]; o.mdAll += R.mdAll[c]; });
-    o.sc = R.pastTot ? o.scDays / R.pastTot : 0;
+    const o = {scDays: 0, scCal: 0, ms: 0, md: 0, mdSc: 0, msAll: 0, mdAll: 0};
+    cs.forEach(c => { o.scDays += R.scDays[c]; o.scCal += R.scCal[c]; o.ms += R.ms1[c]; o.md += R.md1[c]; o.mdSc += R.md1sc[c]; o.msAll += R.msAll[c]; o.mdAll += R.mdAll[c]; });
+    o.sc = R.calTot ? o.scCal / R.calTot : 0;
     o.cap = o.scDays * rate; o.u = o.ms / o.cap;
     o.mdsc = o.sc ? o.md / o.sc : NaN; o.conv = o.md / o.ms;   // MD / SC = total MD ÷ SC count
     o.a = o.cap ? o.md / o.cap : NaN;                           // capacity utilisation = total MD ÷ meeting capacity
@@ -611,7 +615,7 @@ function renderOverview(R, I) {
   $('tiles').innerHTML = [
     t(`${teamLbl()} SC count (Active)`, fmt(o.sc), `${scope} · ${R.wd} working days (${R.off} Monday${R.off === 1 ? '' : 's'} off)`),
     t('MS ÷ capacity', pct(o.u), `${fmt(o.ms)} MS vs ${fmt(o.cap)} capacity`, tone(o.u)),
-    t('MD per SC', f1(o.mdsc), `target ${f1(s.tgt)}`),
+    t('MD per SC', f1(o.mdsc), `${fmt(o.md)} MD ÷ ${fmt(o.sc)} SCs`),
     t('Capacity utilisation', pct(o.a), `${fmt(o.md)} MD vs ${fmt(o.cap)} capacity`, tone(o.a)),
     t('MS → MD', pct(o.conv), `${fmt(o.md)} MD on ${fmt(o.ms)} MS`),
     t('BQL → MD', pct(o.md / bqSel), `${fmt(o.md)} MD on ${fmt(bqSel)} BQL`),
@@ -620,7 +624,7 @@ function renderOverview(R, I) {
   const list = a => a.length ? a.join(', ') : 'none';
   const f = I.funnel;
   $('att').innerHTML = [
-    card('Lead sufficiency & SC utilisation', 'suff', `<p>MS at <b>${pct(s.pan.u)}</b> of capacity; MD / SC <b>${f1(s.pan.mdsc)}</b> vs target ${f1(s.tgt)}; capacity utilisation <b>${pct(s.pan.a)}</b> (PAN).</p><p>Below 80% of capacity: ${list(s.short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.u)))}.</p><p>Lowest capacity utilisation: ${list(s.under.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.a)))}.</p>`),
+    card('Lead sufficiency & SC utilisation', 'suff', `<p>MS at <b>${pct(s.pan.u)}</b> of capacity; MD / SC <b>${f1(s.pan.mdsc)}</b>; capacity utilisation <b>${pct(s.pan.a)}</b> (PAN).</p><p>Below 80% of capacity: ${list(s.short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.u)))}.</p><p>Lowest capacity utilisation: ${list(s.under.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.a)))}.</p>`),
     card('Lead utilisation × Channel', 'funnel', `<p>${f.city}: BQL → MD <b>${pct(f.cr[4])}</b>${f.isPan ? '' : ` vs PAN ${pct(f.pr[4])}`}; BQL → MS ${pct(f.cr[2])}; MS → MD ${pct(f.cr[3])}.</p><p>${f.isPan ? 'Lowest BQL → MD by channel' : 'Furthest below PAN'}: ${list(f.weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`))}.</p>`),  ].join('');
   document.querySelectorAll('[data-go]').forEach(a => a.onclick = () => { showTab(a.dataset.go); window.scrollTo({top: 0}); });
 }
