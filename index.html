@@ -406,15 +406,14 @@ function renderSuff(R, ids, all, I) {
     o.mdsc = o.sc ? o.md / o.sc : NaN; o.conv = o.md / o.ms;   // MD / SC = total MD ÷ SC count
     o.a = o.cap ? o.md / o.cap : NaN;                           // capacity utilisation = total MD ÷ meeting capacity
     o.msReq = o.cap && o.conv ? o.cap / o.conv : NaN;           // MS needed to fill capacity at the current MS -> MD rate
-    o.msGap = o.msReq - o.ms;
     return o;
   };
-  const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${f1(o.mdsc)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td><td class="sep">${fmt(o.msReq)}</td><td class="${isFinite(o.msGap) ? (o.msGap > 0 ? 'r' : 'g') : ''}">${isFinite(o.msGap) ? (o.msGap > 0 ? '+' : '') + fmt(o.msGap) : '–'}</td></tr>`;
+  const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${f1(o.mdsc)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td><td class="sep">${fmt(o.msReq)}</td></tr>`;
   const pan = A(all), sel = A(ids);
   // PAN stays on top and Other cities last; cities sorted by the Sort by filter
   const by = {u: (a, b) => sortV(a.o.u, b.o.u), scDesc: (a, b) => b.o.sc - a.o.sc, scAsc: (a, b) => a.o.sc - b.o.sc}[S.sort1];
   const rows = ids.map(c => ({c, o: A([c])})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || by(a, b));
-  $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD / SC</th><th>Capacity utilisation</th><th>Actual MS → MD</th><th class="sep" title="Meeting capacity ÷ actual MS → MD">MS required at current MS → MD</th><th title="MS required − MS to date; + = more MS needed">MS gap</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
+  $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD / SC</th><th>Capacity utilisation</th><th>Actual MS → MD</th><th class="sep" title="Meeting capacity ÷ actual MS → MD">MS required at current MS → MD</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
   const main = rows.filter(r => r.c !== OTH && r.o.sc >= 3);   // callouts skip cities with under 3 SCs
   const short = main.filter(r => r.o.u < 0.8), under = main.filter(r => r.o.a < 0.8).sort((a, b) => sortV(a.o.a, b.o.a));
   const filt = S.sub1 !== 'ALL' ? D.subs[S.sub1] : S.ch1 !== 'ALL' ? D.channels[S.ch1] : '';
