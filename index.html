@@ -532,24 +532,29 @@ function renderCohort(R, ids) {
   const cum = (o, st, k) => o.st[st].slice(0, k + 1).reduce((a, b) => a + b, 0);
   const r = (n, dd) => dd ? n / dd : NaN;
   const cell = (v, n, k, isLm) => k > reach + (isLm ? 1 : 0) ? '<td class="fut">–</td>' : `<td title="${n != null ? fmt(n) : ''}">${pct(v)}</td>`;
-  const rowOf = (lbl, f, cls, cnt) => `<tr class="${cls || ''}"><td>${lbl}</td>${[0, 1, 2].map(k => cell(f(A, k), cnt ? cnt(A, k) : null, k, false)).join('')}<td class="sep"></td>${[0, 1, 2].map(k => cell(f(Lm, k), cnt ? cnt(Lm, k) : null, k, true)).join('')}</tr>`;
+  // Ladder layout: one block per cohort (selected dates, then LMTD); columns Cohort | BQL | Metric | M0 | by M1 | by M2.
+  // Drill-down rows (▸) open under both cohorts together.
   const tog = (key, lbl) => `<span class="tog" data-x="${key}" style="cursor:pointer">${S[key] ? '▾' : '▸'} ${lbl}</span>`;
-  // cohort size is one number per cohort, centred across M0 / by M1 / by M2
-  let body = `<tr class="pan"><td>BQL (cohort size)</td><td colspan="3" style="text-align:center">${fmt(A.bql)}</td><td class="sep"></td><td colspan="3" style="text-align:center">${fmt(Lm.bql)}</td></tr>`;
-  body += rowOf(tog('x3md', '<b>BQL → MD</b>'), (o, k) => r(cum(o, 2, k), o.bql), 'grp', (o, k) => cum(o, 2, k));
+  const metrics = [[tog('x3md', '<b>BQL → MD</b>'), (o, k) => r(cum(o, 2, k), o.bql), (o, k) => cum(o, 2, k)]];
   if (S.x3md) {
-    body += rowOf('&nbsp;&nbsp;&nbsp;' + tog('x3ms', 'BQL → MS'), (o, k) => r(cum(o, 1, k), o.bql), '', (o, k) => cum(o, 1, k));
+    metrics.push(['&nbsp;&nbsp;&nbsp;' + tog('x3ms', 'BQL → MS'), (o, k) => r(cum(o, 1, k), o.bql), (o, k) => cum(o, 1, k)]);
     if (S.x3ms) {
       if (digital) {
-        body += rowOf('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BQL → LS LRM', (o, k) => r(cum(o, 0, k), o.bql), '', (o, k) => cum(o, 0, k));
-        body += rowOf('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LS LRM → MS', (o, k) => r(cum(o, 1, k), cum(o, 0, k)), '');
-      } else body += `<tr><td colspan="8" class="lo">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BQL → LS LRM and LS LRM → MS: select Channel = Digital</td></tr>`;
+        metrics.push(['&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BQL → LS LRM', (o, k) => r(cum(o, 0, k), o.bql), (o, k) => cum(o, 0, k)]);
+        metrics.push(['&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LS LRM → MS', (o, k) => r(cum(o, 1, k), cum(o, 0, k)), null]);
+      } else metrics.push(['&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="lo">BQL → LS LRM / LS LRM → MS: select Channel = Digital</span>', null, null]);
     }
-    body += rowOf('&nbsp;&nbsp;&nbsp;MS → MD', (o, k) => r(cum(o, 2, k), cum(o, 1, k)), '');
+    metrics.push(['&nbsp;&nbsp;&nbsp;MS → MD', (o, k) => r(cum(o, 2, k), cum(o, 1, k)), null]);
   }
-  const lmLbl = lm.size ? `LMTD cohort (${dLbl(D.dates[Math.min(...lm)])}–${dLbl(D.dates[Math.max(...lm)])})` : 'LMTD cohort (no data)';
-  $('t3').innerHTML = `<thead><tr><th rowspan="2">Metric</th><th colspan="3" class="c">Cohort ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}</th><th rowspan="2" class="sep"></th><th colspan="3" class="c">${lmLbl}${lm.size ? ', stages to ' + dLbl(D.asOf) : ''}</th></tr>` +
-    `<tr><th>M0</th><th>by M1</th><th>by M2</th><th>M0</th><th>by M1</th><th>by M2</th></tr></thead><tbody>${body}</tbody>`;
+  const block = (name, o, isLm, cls) => metrics.map(([lbl, f, cnt], i) =>
+    `<tr class="${i === 0 ? cls : ''}"${i === 0 ? ' style="border-top:2px solid var(--line)"' : ''}>` +
+    (i === 0 ? `<td rowspan="${metrics.length}" style="vertical-align:top;font-weight:650">${name}</td><td rowspan="${metrics.length}" style="vertical-align:top;font-weight:650">${fmt(o.bql)}</td>` : '') +
+    `<td style="text-align:left">${lbl}</td>` +
+    (f ? [0, 1, 2].map(k => cell(f(o, k), cnt ? cnt(o, k) : null, k, isLm)).join('') : '<td></td><td></td><td></td>') + '</tr>').join('');
+  const curLbl = `${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}`;
+  const lmLbl = lm.size ? `${dLbl(D.dates[Math.min(...lm)])}–${dLbl(D.dates[Math.max(...lm)])} <span class="lo" style="font-weight:400">(LMTD)</span>` : 'LMTD <span class="lo">(no data)</span>';
+  $('t3').innerHTML = `<thead><tr><th>Cohort (BQL dates)</th><th>BQL</th><th style="text-align:left">Metric</th><th>M0</th><th>by M1</th><th>by M2</th></tr></thead><tbody>` +
+    block(curLbl, A, false, 'grp') + block(lmLbl, Lm, true, '') + '</tbody>';
   document.querySelectorAll('#t3 .tog').forEach(el => el.onclick = () => { S[el.dataset.x] = !S[el.dataset.x]; render(); });
   const scope = [S.city === 'ALL' ? 'PAN' : D.cities[+S.city], S.ch3 === 'ALL' ? 'all channels' : D.channels[S.ch3], bandLbl(S.band3), teamLbl()].join(' · ');
   const nowMd = r(cum(A, 2, Math.min(reach, 2)), A.bql), sameMd = r(cum(LmSame, 2, 2), LmSame.bql), lmNow = r(cum(Lm, 2, 2), Lm.bql);
