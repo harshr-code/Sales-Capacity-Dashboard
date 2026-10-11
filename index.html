@@ -534,7 +534,8 @@ function renderCohort(R, ids) {
   const cell = (v, n, k, isLm) => k > reach + (isLm ? 1 : 0) ? '<td class="fut">–</td>' : `<td title="${n != null ? fmt(n) : ''}">${pct(v)}</td>`;
   const rowOf = (lbl, f, cls, cnt) => `<tr class="${cls || ''}"><td>${lbl}</td>${[0, 1, 2].map(k => cell(f(A, k), cnt ? cnt(A, k) : null, k, false)).join('')}<td class="sep"></td>${[0, 1, 2].map(k => cell(f(Lm, k), cnt ? cnt(Lm, k) : null, k, true)).join('')}</tr>`;
   const tog = (key, lbl) => `<span class="tog" data-x="${key}" style="cursor:pointer">${S[key] ? '▾' : '▸'} ${lbl}</span>`;
-  let body = `<tr class="pan"><td>BQL (cohort size)</td><td colspan="3">${fmt(A.bql)}</td><td class="sep"></td><td colspan="3">${fmt(Lm.bql)}</td></tr>`;
+  // cohort size is one number per cohort, centred across M0 / by M1 / by M2
+  let body = `<tr class="pan"><td>BQL (cohort size)</td><td colspan="3" style="text-align:center">${fmt(A.bql)}</td><td class="sep"></td><td colspan="3" style="text-align:center">${fmt(Lm.bql)}</td></tr>`;
   body += rowOf(tog('x3md', '<b>BQL → MD</b>'), (o, k) => r(cum(o, 2, k), o.bql), 'grp', (o, k) => cum(o, 2, k));
   if (S.x3md) {
     body += rowOf('&nbsp;&nbsp;&nbsp;' + tog('x3ms', 'BQL → MS'), (o, k) => r(cum(o, 1, k), o.bql), '', (o, k) => cum(o, 1, k));
