@@ -145,7 +145,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-funnel">
   <section>
     <h2>Lead utilisation × Channel</h2>
-    <p class="def">Channel-wise funnel for the city selected in the top filter (or PAN when All cities is selected), for the selected lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). LS LRM = leads sent to LRM (BQL tab, lead_delivered_to_lrm), Digital only. BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. Conversion cells are coloured against the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below.</p>
+    <p class="def">Channel-wise funnel for the city selected in the top filter (or PAN when All cities is selected), for the selected lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). LS LRM = leads sent to LRM (lead_delivered_to_lrm date), Digital only. BQL, LS LRM, MS and MD all follow the sales channel filter (first sales channel of the lead). Conversion cells are coloured against the PAN rate for the same channel: green ≥ 5pp above, red ≥ 5pp below.</p>
     <div class="sf"><div class="lbl">Lead score band<div class="chips" id="f2Band" data-key="band2"></div></div></div>
     <div id="funnelBody"></div>
     <div class="note"><b>LS LRM is shown for Digital only.</b></div>
@@ -156,7 +156,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-fcity">
   <section>
     <h2>Lead utilisation × City</h2>
-    <p class="def">Funnel by city for the selected channel, sub-channel and lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). BQL and LS LRM are pre-SC and do not change with the sales channel filter; MS and MD follow it. With Digital (or a Digital sub-channel) selected, the funnel includes LS LRM; for any other selection it shows BQL, MS, MD, BQL → MS, MS → MD and BQL → MD. Conversion cells are coloured against PAN: green ≥ 5pp above, red ≥ 5pp below; grey italic = base under 20. Selecting a city in the top filter shows that city next to PAN.</p>
+    <p class="def">Funnel by city for the selected channel, sub-channel and lead score band (effort basis: each stage counted on its own date within the selected dates, up to the as-of date). BQL, LS LRM, MS and MD all follow the sales channel filter (first sales channel of the lead). With Digital (or a Digital sub-channel) selected, the funnel includes LS LRM; for any other selection it shows BQL, MS, MD, BQL → MS, MS → MD and BQL → MD. Conversion cells are coloured against PAN: green ≥ 5pp above, red ≥ 5pp below; grey italic = base under 20. Selecting a city in the top filter shows that city next to PAN.</p>
     <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><div class="lbl">Lead score band<div class="chips" id="fFcBand" data-key="fcBand"></div></div></div>
     <div class="read" id="rFc"></div>
     <div class="tw"><table id="tFc"></table></div>
@@ -167,11 +167,12 @@ tbody tr.click:hover td{background:var(--head)}
 <!-- COHORT -->
 <div class="tab" id="t-cohort">
   <section>
-    <h2>Lead utilisation — BQL → MS cohort by lead score band</h2>
-    <p class="def">Each row is a BQL month. MS columns show meetings for that month's BQL leads, by the month the meeting happened (M0 = same month, M1 = next month…). City filter applies; date range does not.</p>
-    <div class="banner">MS cohort pending — needs a lead-level BQL tab (one row per BQL lead, with Lead_ID) to join to the MS to MD tab. BQL column is live; MS cells fill in once that feed is added.</div>
+    <h2>BQL cohort — BQL → MS → MD</h2>
+    <p class="def">Cohort = BQL leads (BQL_Flag = 1) created within the selected dates; LMTD cohort = BQL leads created on the same days last month. Each later stage is counted for those same leads, by the month it happened relative to the BQL month: <b>M0</b> = same month, <b>by M1</b> = up to the next month, <b>by M2</b> = up to the month after. For a fair comparison, the LMTD cohort only counts stages up to the same day last month. City, sales channel (first sales channel) and the filters below apply. Click ▸ to expand.</p>
     <div class="sf"><div class="lbl">Lead score band<div class="chips" id="f3Band" data-key="band3"></div></div><label>Channel<select id="f3Ch"></select></label></div>
+    <div class="read" id="r3"></div>
     <div class="tw"><table id="t3"></table></div>
+    <div class="note"><b>LS LRM is shown for Digital only.</b> "–" = month not reached yet.</div>
   </section>
 </div>
 
@@ -201,7 +202,7 @@ tbody tr.click:hover td{background:var(--head)}
     <h2>Notes and definitions</h2>
     <dl>
       <dt>Data sources</dt>
-      <dd>MS to MD tab (one row per lead: first meeting scheduled date, last meeting done date, current SC email, Field / Inside Sales, lead score, channel, sub-channel); BQL tab (BQL and leads sent to LRM by day, city, channel, sub-channel, lead score); MOP tab (day-wise MOP by city and channel); monthly manpower mapping (SC list).</dd>
+      <dd><b>Raw Data tab</b> (one row per lead): city (B), BQL flag (C), channel (D), sub-channel (E), lead score (F), first sales channel (G — splits BQL, LS LRM, MS and MD into Field / Inside), created date (I — BQL date), LRM date (J), first meeting scheduled date (K), first meeting done date (L), SC email (O). <b>MOP tab</b> (day-wise MOP by city and channel). <b>Monthly manpower file</b> (SC list). Rows without a Lead ID are counted, since each row carries its own dates.</dd>
       <dt>Refresh</dt>
       <dd>The data pulls from the Google Sheet automatically every 2 hours between 08:00 and 22:00 IST (GitHub may run these a little late). Numbers run up to the previous day (as-of date). The <b>↻ Refresh</b> button loads the latest pulled data without losing filters. To force a fresh pull from the sheet immediately, the dashboard owner can run it here: <a href="https://github.com/harshr-code/Sales-Capacity-Dashboard/actions/workflows/refresh.yml" target="_blank" rel="noopener">Run refresh</a> → Run workflow (about 3 minutes), then press ↻ Refresh.</dd>
       <dt>Cities</dt>
@@ -209,15 +210,15 @@ tbody tr.click:hover td{background:var(--head)}
       <dt>Channels</dt>
       <dd><b>Digital</b> — Digital sources only (Google, Meta, organic, inbound and other digital sub-sources).<br><b>Referral</b> — referral leads excluding BTL-sourced referrals.<br><b>BTL</b> — BTL activities, including <b>BTL Referral</b>.<br><b>SolarPro</b> — SolarPro partner leads (Lead Model, Sales Model).<br><b>Others</b> — all sources other than Digital, Referral, SolarPro and BTL: Cold Marketing / Discom data, newspaper, Experience Centre, Affiliate, IVR and untagged.<br>Channel and sub-channel are applied the same way in the BQL and MS to MD tabs.</dd>
       <dt>Funnel stages</dt>
-      <dd><b>BQL</b> = SUM(bill_qualified). <b>LS LRM</b> = leads sent to LRM, SUM(lead_delivered_to_lrm), shown for Digital only, as other channels' leads reach LRM without bill qualification. <b>MS</b> = meeting scheduled, counted once per lead on its <b>first</b> meeting scheduled date; <b>MD</b> = meeting done, counted once per lead on its last meeting done date. Effort basis: each stage is counted on its own date.</dd>
+      <dd><b>BQL</b> = leads with BQL_Flag = 1, on their created date. <b>LS LRM</b> = leads sent to LRM, on the LRM date; shown for Digital only. <b>MS</b> = first meeting scheduled date; <b>MD</b> = first meeting done date — each lead counts once. Effort view (all tabs except BQL cohort): every lead's stage is counted if its date falls in the selected dates. <b>BQL cohort</b>: only BQL leads created in the selected dates, followed through LRM, MS and MD by month (M0 / M1 / M2); the LMTD cohort counts stages only up to the same day last month.</dd>
       <dt>SC count and capacity</dt>
       <dd>For the selected month's manpower file: (1) Department — Field sales or Inside sales, per the sales channel filter; (2) City — from the file; (3) Status — Active, Resigned, or In Training / Newly Hired. <b>SC count (Active)</b> = Active + Resigned people who also appear as SC (Col E) on the MS to MD tab in that month. In Training / Newly Hired are not counted. Anyone owning meetings who is not in the file, or has another status (No Update, Sabbatical, To be found), is <b>Other SC</b>. Each month uses its own file; resigned SCs count for the full month. Working days = days in the range up to the as-of date minus Mondays (weekly off); the filter bar shows the number of Mondays. Meeting capacity = SC count × meetings per SC per day (default 2, editable) × working days. MD / SC = total MD ÷ SC count. Capacity utilisation = total MD ÷ meeting capacity. MS required at current MS → MD = meeting capacity ÷ MS → MD.</dd>
       <dt>Lead score bands (LQI)</dt>
       <dd>Excellent 9–10 · Good 7–9 · Average 5–7 · Poor below 5 (a score of 9 falls in Good, 7 in Average). Leads without a score count under All only.</dd>
       <dt>Colour rules</dt>
       <dd>vs MOP / capacity / target: green ≥ 100%, amber 80–100%, red &lt; 80%. Conversion rates: green / red when ≥ 5pp above / below the PAN rate for the same channel.</dd>
-      <dt>Pending</dt>
-      <dd>BQL → MS cohort needs a lead-level BQL tab with Lead_ID.</dd>
+      <dt>Saved for later</dt>
+      <dd>Order (Col M) and HoTo (Col N) dates, split by last sales channel (Col H), are available in the Raw Data tab but not shown yet.</dd>
     </dl>
   </section>
 </div>
@@ -227,7 +228,7 @@ tbody tr.click:hover td{background:var(--head)}
 let D, DI = {}, OTH;
 const S = {city:'ALL', from:null, to:null, perDay:2, team:'0', tab:'overview',
   ch1:'ALL', sub1:'ALL', sort1:'u', band2:null, fcCh:'ALL', fcSub:'ALL', fcBand:null,
-  band3:null, ch3:'ALL', ch0:'ALL', m0c:'2', v0c:'p'};
+  band3:null, ch3:'ALL', x3md:false, x3ms:false, ch0:'ALL', m0c:'2', v0c:'p'};
 const $ = id => document.getElementById(id);
 const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
 const f1 = n => (n == null || !isFinite(n)) ? '–' : n.toFixed(1);
@@ -387,7 +388,7 @@ function render() {
   renderSuff(R, ids, all, I);
   renderFunnel(R, I);
   renderFunnelCity(R);
-  renderCohort(ids);
+  renderCohort(R, ids);
   renderMop(R, ids);
   renderOverview(R, I);
   document.querySelectorAll('tbody tr.click').forEach(tr => tr.onclick = () => { S.city = tr.dataset.c; $('fCity').value = S.city; render(); window.scrollTo({top: 0, behavior: 'smooth'}); });
@@ -429,8 +430,8 @@ function renderFunnel(R, I) {
   const inScope = c => isPanView || c === +S.city;
   const z = () => ({b: new Array(nCh).fill(0), l: new Array(nCh).fill(0), s: new Array(nCh).fill(0), d: new Array(nCh).fill(0)});
   const city = z(), pan = z();
-  for (const [d, c, ch, sb, b, v, l] of D.bql) {
-    if (d < R.fi || d > R.effTo || !bandOk(b, S.band2)) continue;
+  for (const [d, c, ch, sb, b, t, v, l] of D.bql) {
+    if (d < R.fi || d > R.effTo || !teamOk(t) || !bandOk(b, S.band2)) continue;
     pan.b[ch] += v; pan.l[ch] += l; if (inScope(c)) { city.b[ch] += v; city.l[ch] += l; }
   }
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) {
@@ -469,7 +470,7 @@ function renderFunnelCity(R) {
   const lrmOn = S.fcCh === '0';   // LS LRM for Digital only
   const z = () => new Array(nC).fill(0);
   const B = z(), L = z(), M = z(), Dn = z();
-  for (const [d, c, ch, sb, b, v, l] of D.bql) if (d >= R.fi && d <= R.effTo && ok(ch, sb, b)) { B[c] += v; L[c] += l; }
+  for (const [d, c, ch, sb, b, t, v, l] of D.bql) if (d >= R.fi && d <= R.effTo && teamOk(t) && ok(ch, sb, b)) { B[c] += v; L[c] += l; }
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) if (d >= R.fi && d <= R.effTo && teamOk(t) && ok(ch, sb, b)) { M[c] += ms; Dn[c] += md; }
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pan = {b: sum(B), l: sum(L), s: sum(M), d: sum(Dn)};
@@ -500,18 +501,54 @@ function renderFunnelCity(R) {
     (S.city === 'ALL' && ranked.length ? `<p>Lowest ${keyLbl}: ${ranked.slice(0, 4).map(x => x.n + ' ' + pct(x.r)).join(', ')}. Highest: ${ranked.slice(-3).reverse().map(x => x.n + ' ' + pct(x.r)).join(', ')}.</p>` : '');
 }
 
-// ---------- Cohort (pending) ----------
-function renderCohort(ids) {
-  const months = D.months.filter(m => m <= D.asOf.slice(0, 7));
-  const bqlM = {}; months.forEach(m => bqlM[m] = 0);
-  const idSet = new Set(ids);
-  for (const [d, c, ch, sb, b, v] of D.bql) {
-    if (!idSet.has(c) || (S.ch3 !== 'ALL' && ch != S.ch3) || !bandOk(b, S.band3)) continue;
-    const m = D.dates[d].slice(0, 7); if (m in bqlM) bqlM[m] += v;
+// ---------- BQL cohort: BQL -> MS -> MD by M0 / M1 / M2 ----------
+// coh rows: [createdDateIdx, city, ch, band, team, stage (0 LRM, 1 MS, 2 MD), monthOffset 0..2, early (on/before same day last month), n]
+function renderCohort(R, ids) {
+  const idSet = new Set(ids), digital = S.ch3 === '0';
+  const ok = (c, ch, b, t) => idSet.has(c) && (S.ch3 === 'ALL' || ch == S.ch3) && bandOk(b, S.band3) && teamOk(t);
+  // current cohort = created in [fi, effTo]; LMTD cohort = same days one month earlier
+  const cur = new Set(), lm = new Set();
+  for (let d = R.fi; d <= R.effTo; d++) {
+    cur.add(d);
+    const k = D.dates[d], y = +k.slice(0, 4), mo = +k.slice(5, 7) - 1, day = +k.slice(8);
+    const p = new Date(Date.UTC(y, mo - 1, day));
+    if (p.getUTCDate() === day) { const pk = p.toISOString().slice(0, 10); if (DI[pk] != null) lm.add(DI[pk]); }
   }
-  const L = Math.max(3, months.length);
-  $('t3').innerHTML = `<thead><tr><th>BQL month</th><th>BQL</th>${Array.from({length: L}, (_, i) => `<th>MS M${i}</th>`).join('')}<th>Total MS</th><th>BQL → MS %</th></tr></thead><tbody>` +
-    months.map((m, mi) => `<tr><td>${monLbl(m)}${m === D.asOf.slice(0, 7) ? ' (MTD)' : ''}</td><td>${fmt(bqlM[m])}</td>${Array.from({length: L}, (_, i) => mi + i < months.length ? '<td class="pend">pending</td>' : '<td class="fut"></td>').join('')}<td class="pend">pending</td><td class="pend">pending</td></tr>`).join('') + '</tbody>';
+  const blank = () => ({bql: 0, st: [0, 1, 2].map(() => [0, 0, 0])});   // st[stage][offset]
+  const A = blank(), Lm = blank();
+  for (const [d, c, ch, sb, b, t, v] of D.bql) if (v && ok(c, ch, b, t)) { if (cur.has(d)) A.bql += v; if (lm.has(d)) Lm.bql += v; }
+  for (const [d, c, ch, b, t, st, off, early, n] of D.coh) {
+    if (!ok(c, ch, b, t)) continue;
+    if (cur.has(d)) A.st[st][off] += n;
+    if (lm.has(d) && early) Lm.st[st][off] += n;   // LMTD: only stages up to the same day last month
+  }
+  // months reached so far for the current cohort (by its earliest BQL month)
+  const cm = D.dates[R.fi].slice(0, 7), am = D.asOf.slice(0, 7);
+  const reach = (+am.slice(0, 4) - +cm.slice(0, 4)) * 12 + (+am.slice(5) - +cm.slice(5));   // 0 = only M0 so far
+  const cum = (o, st, k) => o.st[st].slice(0, k + 1).reduce((a, b) => a + b, 0);
+  const r = (n, dd) => dd ? n / dd : NaN;
+  const cell = (v, n, k, isLm) => (!isLm && k > reach) || (isLm && k > 0) ? '<td class="fut">–</td>' : `<td title="${n != null ? fmt(n) : ''}">${pct(v)}</td>`;
+  const rowOf = (lbl, f, cls, cnt) => `<tr class="${cls || ''}"><td>${lbl}</td>${[0, 1, 2].map(k => cell(f(A, k), cnt ? cnt(A, k) : null, k, false)).join('')}<td class="sep"></td>${[0, 1, 2].map(k => cell(f(Lm, k), cnt ? cnt(Lm, k) : null, k, true)).join('')}</tr>`;
+  const tog = (key, lbl) => `<span class="tog" data-x="${key}" style="cursor:pointer">${S[key] ? '▾' : '▸'} ${lbl}</span>`;
+  let body = `<tr class="pan"><td>BQL (cohort size)</td><td colspan="3">${fmt(A.bql)}</td><td class="sep"></td><td colspan="3">${fmt(Lm.bql)}</td></tr>`;
+  body += rowOf(tog('x3md', '<b>BQL → MD</b>'), (o, k) => r(cum(o, 2, k), o.bql), 'grp', (o, k) => cum(o, 2, k));
+  if (S.x3md) {
+    body += rowOf('&nbsp;&nbsp;&nbsp;' + tog('x3ms', 'BQL → MS'), (o, k) => r(cum(o, 1, k), o.bql), '', (o, k) => cum(o, 1, k));
+    if (S.x3ms) {
+      if (digital) {
+        body += rowOf('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BQL → LS LRM', (o, k) => r(cum(o, 0, k), o.bql), '', (o, k) => cum(o, 0, k));
+        body += rowOf('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LS LRM → MS', (o, k) => r(cum(o, 1, k), cum(o, 0, k)), '');
+      } else body += `<tr><td colspan="8" class="lo">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BQL → LS LRM and LS LRM → MS: select Channel = Digital</td></tr>`;
+    }
+    body += rowOf('&nbsp;&nbsp;&nbsp;MS → MD', (o, k) => r(cum(o, 2, k), cum(o, 1, k)), '');
+  }
+  const lmLbl = lm.size ? `LMTD cohort (${dLbl(D.dates[Math.min(...lm)])}–${dLbl(D.dates[Math.max(...lm)])})` : 'LMTD cohort (no data)';
+  $('t3').innerHTML = `<thead><tr><th rowspan="2">Metric</th><th colspan="3" class="c">Cohort ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}</th><th rowspan="2" class="sep"></th><th colspan="3" class="c">${lmLbl}${lm.size ? ', stages up to ' + dLbl(D.asOfLm) : ''}</th></tr>` +
+    `<tr><th>M0</th><th>by M1</th><th>by M2</th><th>M0</th><th>by M1</th><th>by M2</th></tr></thead><tbody>${body}</tbody>`;
+  document.querySelectorAll('#t3 .tog').forEach(el => el.onclick = () => { S[el.dataset.x] = !S[el.dataset.x]; render(); });
+  const scope = [S.city === 'ALL' ? 'PAN' : D.cities[+S.city], S.ch3 === 'ALL' ? 'all channels' : D.channels[S.ch3], bandLbl(S.band3), teamLbl()].join(' · ');
+  const nowMd = r(cum(A, 2, Math.min(reach, 2)), A.bql), lmMd = r(cum(Lm, 2, 0), Lm.bql);
+  $('r3').innerHTML = `<p>${scope}: BQL → MD so far <b>${pct(nowMd)}</b> on ${fmt(A.bql)} BQL${lm.size ? ` · LMTD cohort at the same age ${pct(lmMd)} on ${fmt(Lm.bql)} BQL` : ''}.</p>`;
 }
 
 // ---------- MOP ----------
@@ -528,7 +565,7 @@ function renderMop(R, ids) {
   const z = () => [0, 1, 2].map(() => D.cities.map(() => new Array(nCh).fill(0)));
   const mtdC = z(), actC = z();
   for (const [c, day, m, ch, v] of D.mop.rows) { if (m <= 2 && days.has(day)) mtdC[m][c][ch] += v; }
-  for (const [d, c, ch, sb, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && inM(d)) actC[0][c][ch] += v;
+  for (const [d, c, ch, sb, b, t, v] of D.bql) if (d >= R.fi && d <= R.effTo && inM(d)) actC[0][c][ch] += v;   // MOP: all sales channels
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) if (d >= R.fi && d <= R.effTo && inM(d)) { actC[1][c][ch] += ms; actC[2][c][ch] += md; }
   const chOk = ch => S.ch0 === 'ALL' || ch == S.ch0;
   const fold = X => X.map(st => st.map(r => r.reduce((a, v, ch) => a + (chOk(ch) ? v : 0), 0)));
@@ -569,7 +606,7 @@ function renderOverview(R, I) {
   const idSet = new Set(cityList());
   // BQL for the same dates, cities and channel / sub-channel filter as the other tiles
   let bqSel = 0;
-  for (const [d, c, ch, sb, b, v] of D.bql) if (d >= R.fi && d <= R.effTo && idSet.has(c) && (S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) bqSel += v;
+  for (const [d, c, ch, sb, b, t, v] of D.bql) if (d >= R.fi && d <= R.effTo && idSet.has(c) && teamOk(t) && (S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) bqSel += v;
   $('tiles').innerHTML = [
     t(`${teamLbl()} SC count (Active)`, fmt(o.sc), `${scope} · ${R.wd} working days (${R.off} Monday${R.off === 1 ? '' : 's'} off)`),
     t('MS ÷ capacity', pct(o.u), `${fmt(o.ms)} MS vs ${fmt(o.cap)} capacity`, tone(o.u)),
