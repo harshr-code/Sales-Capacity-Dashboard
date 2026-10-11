@@ -168,7 +168,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-cohort">
   <section>
     <h2>BQL cohort — BQL → MS → MD</h2>
-    <p class="def">Cohort = BQL leads (BQL_Flag = 1) created within the selected dates; LMTD cohort = BQL leads created on the same days last month. Each later stage is counted for those same leads, by the month it happened relative to the BQL month: <b>M0</b> = same month, <b>by M1</b> = up to the next month, <b>by M2</b> = up to the month after. For a fair comparison, the LMTD cohort only counts stages up to the same day last month. City, sales channel (first sales channel) and the filters below apply. Click ▸ to expand.</p>
+    <p class="def">Cohort = BQL leads (BQL_Flag = 1) created within the selected dates; LMTD cohort = BQL leads created on the same days last month. Each later stage is counted for those same leads, by the month it happened relative to the BQL month: <b>M0</b> = same month, <b>by M1</b> = up to the next month, <b>by M2</b> = up to the month after. The LMTD columns show that cohort's progress to date (M0 = its full month, by M1 = up to today); the summary line above the table compares both cohorts at the same age. City, sales channel (first sales channel) and the filters below apply. Click ▸ to expand.</p>
     <div class="sf"><div class="lbl">Lead score band<div class="chips" id="f3Band" data-key="band3"></div></div><label>Channel<select id="f3Ch"></select></label></div>
     <div class="read" id="r3"></div>
     <div class="tw"><table id="t3"></table></div>
@@ -515,19 +515,19 @@ function renderCohort(R, ids) {
     if (p.getUTCDate() === day) { const pk = p.toISOString().slice(0, 10); if (DI[pk] != null) lm.add(DI[pk]); }
   }
   const blank = () => ({bql: 0, st: [0, 1, 2].map(() => [0, 0, 0])});   // st[stage][offset]
-  const A = blank(), Lm = blank();
-  for (const [d, c, ch, sb, b, t, v] of D.bql) if (v && ok(c, ch, b, t)) { if (cur.has(d)) A.bql += v; if (lm.has(d)) Lm.bql += v; }
+  const A = blank(), Lm = blank(), LmSame = blank();
+  for (const [d, c, ch, sb, b, t, v] of D.bql) if (v && ok(c, ch, b, t)) { if (cur.has(d)) A.bql += v; if (lm.has(d)) { Lm.bql += v; LmSame.bql += v; } }
   for (const [d, c, ch, b, t, st, off, early, n] of D.coh) {
     if (!ok(c, ch, b, t)) continue;
     if (cur.has(d)) A.st[st][off] += n;
-    if (lm.has(d) && early) Lm.st[st][off] += n;   // LMTD: only stages up to the same day last month
+    if (lm.has(d)) { Lm.st[st][off] += n; if (early) LmSame.st[st][off] += n; }   // table: LMTD to date; summary: same age
   }
   // months reached so far for the current cohort (by its earliest BQL month)
   const cm = D.dates[R.fi].slice(0, 7), am = D.asOf.slice(0, 7);
   const reach = (+am.slice(0, 4) - +cm.slice(0, 4)) * 12 + (+am.slice(5) - +cm.slice(5));   // 0 = only M0 so far
   const cum = (o, st, k) => o.st[st].slice(0, k + 1).reduce((a, b) => a + b, 0);
   const r = (n, dd) => dd ? n / dd : NaN;
-  const cell = (v, n, k, isLm) => (!isLm && k > reach) || (isLm && k > 0) ? '<td class="fut">–</td>' : `<td title="${n != null ? fmt(n) : ''}">${pct(v)}</td>`;
+  const cell = (v, n, k, isLm) => k > reach + (isLm ? 1 : 0) ? '<td class="fut">–</td>' : `<td title="${n != null ? fmt(n) : ''}">${pct(v)}</td>`;
   const rowOf = (lbl, f, cls, cnt) => `<tr class="${cls || ''}"><td>${lbl}</td>${[0, 1, 2].map(k => cell(f(A, k), cnt ? cnt(A, k) : null, k, false)).join('')}<td class="sep"></td>${[0, 1, 2].map(k => cell(f(Lm, k), cnt ? cnt(Lm, k) : null, k, true)).join('')}</tr>`;
   const tog = (key, lbl) => `<span class="tog" data-x="${key}" style="cursor:pointer">${S[key] ? '▾' : '▸'} ${lbl}</span>`;
   let body = `<tr class="pan"><td>BQL (cohort size)</td><td colspan="3">${fmt(A.bql)}</td><td class="sep"></td><td colspan="3">${fmt(Lm.bql)}</td></tr>`;
@@ -543,12 +543,13 @@ function renderCohort(R, ids) {
     body += rowOf('&nbsp;&nbsp;&nbsp;MS → MD', (o, k) => r(cum(o, 2, k), cum(o, 1, k)), '');
   }
   const lmLbl = lm.size ? `LMTD cohort (${dLbl(D.dates[Math.min(...lm)])}–${dLbl(D.dates[Math.max(...lm)])})` : 'LMTD cohort (no data)';
-  $('t3').innerHTML = `<thead><tr><th rowspan="2">Metric</th><th colspan="3" class="c">Cohort ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}</th><th rowspan="2" class="sep"></th><th colspan="3" class="c">${lmLbl}${lm.size ? ', stages up to ' + dLbl(D.asOfLm) : ''}</th></tr>` +
+  $('t3').innerHTML = `<thead><tr><th rowspan="2">Metric</th><th colspan="3" class="c">Cohort ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}</th><th rowspan="2" class="sep"></th><th colspan="3" class="c">${lmLbl}${lm.size ? ', stages to ' + dLbl(D.asOf) : ''}</th></tr>` +
     `<tr><th>M0</th><th>by M1</th><th>by M2</th><th>M0</th><th>by M1</th><th>by M2</th></tr></thead><tbody>${body}</tbody>`;
   document.querySelectorAll('#t3 .tog').forEach(el => el.onclick = () => { S[el.dataset.x] = !S[el.dataset.x]; render(); });
   const scope = [S.city === 'ALL' ? 'PAN' : D.cities[+S.city], S.ch3 === 'ALL' ? 'all channels' : D.channels[S.ch3], bandLbl(S.band3), teamLbl()].join(' · ');
-  const nowMd = r(cum(A, 2, Math.min(reach, 2)), A.bql), lmMd = r(cum(Lm, 2, 0), Lm.bql);
-  $('r3').innerHTML = `<p>${scope}: BQL → MD so far <b>${pct(nowMd)}</b> on ${fmt(A.bql)} BQL${lm.size ? ` · LMTD cohort at the same age ${pct(lmMd)} on ${fmt(Lm.bql)} BQL` : ''}.</p>`;
+  const nowMd = r(cum(A, 2, Math.min(reach, 2)), A.bql), sameMd = r(cum(LmSame, 2, 2), LmSame.bql), lmNow = r(cum(Lm, 2, 2), Lm.bql);
+  $('r3').innerHTML = `<p>${scope}: BQL → MD so far <b>${pct(nowMd)}</b> on ${fmt(A.bql)} BQL.` +
+    (lm.size ? ` Like-for-like: the LMTD cohort was at <b>${pct(sameMd)}</b> at the same age (by ${dLbl(D.asOfLm)}); it has since reached ${pct(lmNow)} by ${dLbl(D.asOf)}.` : '') + `</p>`;
 }
 
 // ---------- MOP ----------
