@@ -133,7 +133,7 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-suff">
   <section>
     <h2>Lead sufficiency &amp; SC utilisation</h2>
-    <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label><label>Sort by<select id="f1Sort"><option value="u">MS ÷ capacity (low → high)</option><option value="scDesc">SC count (high → low)</option><option value="scAsc">SC count (low → high)</option></select></label></div>
+    <div class="sf"><label>Channel<select id="f1Ch"></select></label><label>Sub-channel<select id="f1Sub"></select></label><label>Sort by<select id="f1Sort"><option value="u">MS ÷ capacity (low → high)</option><option value="uDesc">MS ÷ capacity (high → low)</option><option value="scDesc">SC count (high → low)</option><option value="scAsc">SC count (low → high)</option></select></label></div>
     <div class="read" id="r1"></div>
     <div class="tw"><table id="t1"></table></div>
     <div class="legend"><span style="--c:var(--g)">≥ 100%</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80% (MS ÷ capacity: lead shortfall · capacity utilisation: SCs under-utilised)</span></div>
@@ -411,7 +411,7 @@ function renderSuff(R, ids, all, I) {
   const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${f1(o.mdsc)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td><td class="sep">${fmt(o.msReq)}</td></tr>`;
   const pan = A(all), sel = A(ids);
   // PAN stays on top and Other cities last; cities sorted by the Sort by filter
-  const by = {u: (a, b) => sortV(a.o.u, b.o.u), scDesc: (a, b) => b.o.sc - a.o.sc, scAsc: (a, b) => a.o.sc - b.o.sc}[S.sort1];
+  const by = {u: (a, b) => sortV(a.o.u, b.o.u), uDesc: (a, b) => (isFinite(b.o.u) ? b.o.u : -1) - (isFinite(a.o.u) ? a.o.u : -1), scDesc: (a, b) => b.o.sc - a.o.sc, scAsc: (a, b) => a.o.sc - b.o.sc}[S.sort1];
   const rows = ids.map(c => ({c, o: A([c])})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || by(a, b));
   $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD / SC</th><th>Capacity utilisation</th><th>Actual MS → MD</th><th class="sep" title="Meeting capacity ÷ actual MS → MD">MS required at current MS → MD</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
   const main = rows.filter(r => r.c !== OTH && r.o.sc >= 3);   // callouts skip cities with under 3 SCs
