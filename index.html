@@ -149,6 +149,13 @@ tbody tr.click:hover td{background:var(--head)}
     <div id="funnelBody"></div>
     <div class="note">Effort basis (each stage on its own date) · Colours vs PAN for the same channel (±5pp) · LS LRM for Digital only.</div>
   </section>
+  <section>
+    <h2>Lead utilisation × Lead score band</h2>
+    <div class="sf"><label>Channel<select id="fBdCh"></select></label></div>
+    <div class="read" id="rBd"></div>
+    <div class="tw"><table id="tBd"></table></div>
+    <div class="note">Effort basis · Colours vs PAN for the same band (±5pp) when a city is selected · LS LRM shown when Channel = Digital.</div>
+  </section>
 </div>
 
 <!-- FUNNEL x LQI x CITY -->
@@ -225,7 +232,7 @@ tbody tr.click:hover td{background:var(--head)}
 let D, DI = {}, OTH;
 const S = {city:'ALL', from:null, to:null, perDay:2, team:'0', tab:'overview',
   ch1:'ALL', sub1:'ALL', sort1:'u', band2:null, fcCh:'ALL', fcSub:'ALL', fcBand:null,
-  band3:null, ch3:'ALL', x3md:false, x3ms:false, ch0:'ALL', m0c:'2', v0c:'p'};
+  band3:null, ch3:'ALL', bdCh:'ALL', x3md:false, x3ms:false, ch0:'ALL', m0c:'2', v0c:'p'};
 const $ = id => document.getElementById(id);
 const fmt = n => (n == null || !isFinite(n)) ? '–' : Math.round(n).toLocaleString('en-IN');
 const f1 = n => (n == null || !isFinite(n)) ? '–' : n.toFixed(1);
@@ -301,7 +308,7 @@ function init(d) {
   opts($('fCity'), D.cities.map((c, i) => [i, c]), 'All cities (PAN)');
   opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
   const chOpts = D.channels.map((c, i) => [i, c]), bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
-  ['f0Ch', 'f1Ch', 'f3Ch', 'fFcCh'].forEach(id => opts($(id), chOpts, 'All channels'));
+  ['f0Ch', 'f1Ch', 'f3Ch', 'fFcCh', 'fBdCh'].forEach(id => opts($(id), chOpts, 'All channels'));
   document.querySelectorAll('.chips').forEach(bandMulti);
   subOpts($('f1Sub'), 'ALL'); subOpts($('fFcSub'), 'ALL');
   ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = maxDate(); });
@@ -321,6 +328,7 @@ function init(d) {
   on('fFcCh', v => { S.fcCh = v; S.fcSub = 'ALL'; subOpts($('fFcSub'), v); $('fFcSub').value = 'ALL'; });
   on('fFcSub', v => S.fcSub = v);
   on('f3Ch', v => S.ch3 = v);
+  on('fBdCh', v => S.bdCh = v);
   on('f0Ch', v => S.ch0 = v); on('f0cM', v => S.m0c = v); on('f0cV', v => S.v0c = v);
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.t));
   window.addEventListener('hashchange', () => showTab(location.hash.slice(1), true));
@@ -388,6 +396,7 @@ function render() {
   const I = {};
   renderSuff(R, ids, all, I);
   renderFunnel(R, I);
+  renderFunnelBand(R);
   renderFunnelCity(R);
   renderCohort(R, ids);
   renderMop(R, ids);
@@ -461,6 +470,37 @@ function renderFunnel(R, I) {
       : `<p>Furthest below PAN on BQL → MD: ${weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])} (${(x[1] * 100).toFixed(1)}pp)`).join(', ')}.</p>`) : '') +
     `</div><div class="tw"><table>${head}<tbody>${body}</tbody></table></div>`;
   I.funnel = {city: name, isPan: isPanView, cr, pr: rates(pan, nCh), weak};
+}
+
+// ---------- Lead utilisation x Lead score band (selected city or PAN), Channel filter ----------
+function renderFunnelBand(R) {
+  const nB = D.bands.length, isPanView = S.city === 'ALL', lrmOn = S.bdCh === '0';
+  const inScope = c => isPanView || c === +S.city, chOk = ch => S.bdCh === 'ALL' || ch == S.bdCh;
+  const z = () => ({b: new Array(nB).fill(0), l: new Array(nB).fill(0), s: new Array(nB).fill(0), d: new Array(nB).fill(0)});
+  const city = z(), pan = z();
+  for (const [d, c, ch, sb, b, t, v, l] of D.bql) {
+    if (d < R.fi || d > R.effTo || !teamOk(t) || !chOk(ch)) continue;
+    pan.b[b] += v; pan.l[b] += l; if (inScope(c)) { city.b[b] += v; city.l[b] += l; }
+  }
+  for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) {
+    if (d < R.fi || d > R.effTo || !teamOk(t) || !chOk(ch)) continue;
+    pan.s[b] += ms; pan.d[b] += md; if (inScope(c)) { city.s[b] += ms; city.d[b] += md; }
+  }
+  const tot = o => ['b', 'l', 's', 'd'].forEach(k => o[k].push(o[k].reduce((a, v) => a + v, 0)));
+  tot(city); tot(pan);
+  // [BQL -> LS LRM, LS LRM -> MS, BQL -> MS, MS -> MD, BQL -> MD]
+  const rates = (o, k) => [lrmOn ? o.l[k] / o.b[k] : NaN, lrmOn ? o.s[k] / o.l[k] : NaN, o.s[k] / o.b[k], o.d[k] / o.s[k], o.d[k] / o.b[k]];
+  const names = D.bands.concat('Total');
+  const line = (k, cls) => {
+    const r = rates(city, k), p = rates(pan, k);
+    const cells = r.map((x, j) => `<td class="${j === 0 ? 'sep ' : ''}${isPanView ? '' : toneVs(x, p[j])}">${pct(x)}</td>`).join('');
+    return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(city.b[k])}</td><td>${lrmOn ? fmt(city.l[k]) : '–'}</td><td>${fmt(city.s[k])}</td><td>${fmt(city.d[k])}</td>${cells}</tr>`;
+  };
+  $('tBd').innerHTML = `<thead><tr><th>Lead score band</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>BQL → MS</th><th>MS → MD</th><th>BQL → MD</th></tr></thead><tbody>` +
+    D.bands.map((_, k) => line(k, '')).join('') + line(nB, 'pan') + '</tbody>';
+  const name = isPanView ? 'PAN (all cities)' : D.cities[+S.city];
+  const best = D.bands.slice(0, 4).map((n, k) => [n, rates(city, k)[4]]).filter(x => isFinite(x[1]));
+  $('rBd').innerHTML = `<p><b>${name}</b> · ${S.bdCh === 'ALL' ? 'all channels' : D.channels[S.bdCh]} · ${teamLbl()} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: BQL → MD by band — ${best.map(x => x[0].split(' ')[0] + ' ' + pct(x[1])).join(' · ')}.</p>`;
 }
 
 // ---------- Lead utilisation x City: one row per city ----------
