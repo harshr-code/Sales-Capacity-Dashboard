@@ -101,6 +101,7 @@ tbody tr.click:hover td{background:var(--head)}
   <nav class="tabs" id="tabs">
     <button data-t="overview">Overview</button>
     <button data-t="suff">Lead sufficiency &amp; SC utilisation</button>
+    <button data-t="planner">SC planner</button>
     <button data-t="funnel">Lead utilisation × Channel</button>
     <button data-t="fcity">Lead utilisation × City</button>
     <button data-t="cohort">BQL cohort</button>
@@ -119,7 +120,7 @@ tbody tr.click:hover td{background:var(--head)}
   </div>
   <div class="grp lev" id="levers">
     <label title="Editable">Meetings / SC / day<input type="number" id="fPerDay" class="lever" min="0.5" max="6" step="0.25" value="2"></label>
-    <label title="Mondays are off; working days = days in the selected range up to the as-of date, minus Mondays">Days off (Mondays)<div class="ro" id="daysOff">–</div></label>  </div>
+    <label title="Defaults to the Mondays in the selected dates; type a number to override">Days off<div class="ro"><input type="number" id="fOff" class="lever" min="0" max="31" step="1"><small id="wdInfo"></small></div></label>  </div>
 </div>
 <div id="err"></div>
 
@@ -138,6 +139,17 @@ tbody tr.click:hover td{background:var(--head)}
     <div class="tw"><table id="t1"></table></div>
     <div class="legend"><span style="--c:var(--g)">≥ 100%</span><span style="--c:var(--a)">80–100%</span><span style="--c:var(--r)">&lt; 80% (MS ÷ capacity: lead shortfall · capacity utilisation: SCs under-utilised)</span></div>
     <div class="note">SC count = Active + Resigned SCs with meetings · Capacity = SCs × meetings / day × working days (Mondays off) · Capacity utilisation = MD ÷ capacity · MS required = capacity ÷ MS → MD.</div>
+  </section>
+</div>
+
+<!-- SC PLANNER -->
+<div class="tab" id="t-planner">
+  <section>
+    <h2>SC planner — capacity at a typed-in SC count</h2>
+    <div class="sf"><button type="button" class="chip" id="pReset">Reset all to manpower count</button></div>
+    <div class="read" id="rP"></div>
+    <div class="tw"><table id="tP"></table></div>
+    <div class="note">Type an SC count in any city (blank = manpower count, shown greyed) · Only capacity-based columns change; MS, MD and HoTo stay actual · Typed numbers are saved in this browser.</div>
   </section>
 </div>
 
@@ -230,7 +242,7 @@ tbody tr.click:hover td{background:var(--head)}
 
 <script>
 let D, DI = {}, OTH;
-const S = {city:'ALL', from:null, to:null, perDay:2, team:'0', tab:'overview',
+const S = {city:'ALL', from:null, to:null, perDay:2, offManual:null, scIn:{}, team:'0', tab:'overview',
   ch1:'ALL', sub1:'ALL', sort1:'u', band2:null, fcCh:'ALL', fcSub:'ALL', fcBand:null,
   band3:null, ch3:'ALL', bdCh:'ALL', x3md:false, x3ms:false, ch0:'ALL', m0c:'2', v0c:'p'};
 const $ = id => document.getElementById(id);
@@ -305,6 +317,8 @@ function init(d) {
   setData(d);
   $('reload').onclick = reload;
   $('notesBtn').onclick = () => { showTab('notes'); window.scrollTo({top: 0}); };
+  try { S.scIn = JSON.parse(localStorage.getItem('scPlanner') || '{}') || {}; } catch (e) { S.scIn = {}; }
+  $('pReset').onclick = () => { S.scIn = {}; try { localStorage.removeItem('scPlanner'); } catch (e) {} render(); };
   opts($('fCity'), D.cities.map((c, i) => [i, c]), 'All cities (PAN)');
   opts($('fMonth'), D.months.map(m => [m, monLbl(m)]).reverse());
   const chOpts = D.channels.map((c, i) => [i, c]), bandOpts = D.bands.slice(0, 4).map((b, i) => [i, b]);
@@ -315,13 +329,14 @@ function init(d) {
   setMonth(D.asOf.slice(0, 7));
   const on = (id, f) => $(id).addEventListener(id === 'fPerDay' ? 'input' : 'change', e => { f(e.target.value); render(); });
   on('fCity', v => S.city = v);
-  on('fMonth', v => setMonth(v));
+  on('fMonth', v => { setMonth(v); S.offManual = null; });   // new month: days off back to its Mondays
   // dates are clamped to [first data date, today]; a typed date beyond today snaps back to today
   const clamp = v => v > maxDate() ? maxDate() : v < D.dates[0] ? D.dates[0] : v;
   on('fFrom', v => { if (v) S.from = clamp(v); if (S.from > S.to) S.to = S.from; });
   on('fTo', v => { if (v) S.to = clamp(v); if (S.to < S.from) S.from = S.to; });
   on('fTeam', v => S.team = v);
   on('fPerDay', v => S.perDay = +v || 0);
+  on('fOff', v => S.offManual = v === '' ? null : Math.max(0, Math.round(+v) || 0));   // blank = back to Mondays
   on('f1Ch', v => { S.ch1 = v; S.sub1 = 'ALL'; subOpts($('f1Sub'), v); $('f1Sub').value = 'ALL'; });
   on('f1Sub', v => S.sub1 = v);
   on('f1Sort', v => S.sort1 = v);
@@ -340,7 +355,7 @@ function showTab(t, noHash) {
   S.tab = t;
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.id === 't-' + t));
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  $('levers').classList.toggle('hide', !['overview', 'suff'].includes(t));
+  $('levers').classList.toggle('hide', !['overview', 'suff', 'planner'].includes(t));
   if (!noHash) history.replaceState(null, '', '#' + t);
 }
 function setMonth(m) {
@@ -361,30 +376,33 @@ function compute() {
   // SC count = Active + Resigned (class 0, 2)
   const counted = k => k === 0 || k === 2;
   const R = {fi, ti, effTo, ms1: z(nC), md1: z(nC), md1sc: z(nC), msAll: z(nC), mdAll: z(nC),
-    scDays: z(nC)};
+    bq1: z(nC), ho1: z(nC), scDays: z(nC)};
+  const ch1Ok = (ch, sb) => (S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1);
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) {
     if (d < fi || d > effTo || !teamOk(t)) continue;
     R.msAll[c] += ms; R.mdAll[c] += md;
-    if ((S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) {
+    if (ch1Ok(ch, sb)) {
       R.ms1[c] += ms; R.md1[c] += md;
       if (counted(k)) R.md1sc[c] += md;   // MD done by the counted SCs
     }
   }
-  // Working days = days in the range up to the as-of date, minus Mondays (weekly off).
-  // SC count is weighted by working days across the months in the range.
-  // SC count shown uses calendar days, so a range with only a Monday still shows the SCs.
-  const workDays = D.months.map(() => 0), calDays = D.months.map(() => 0);
-  R.off = 0; R.scCal = z(nC);
+  // BQL and HoTo for the same channel / sub-channel filter (HoTo split by last sales channel, Col H)
+  for (const [d, c, ch, sb, b, t, v] of D.bql) if (d >= fi && d <= effTo && teamOk(t) && ch1Ok(ch, sb)) R.bq1[c] += v;
+  for (const [d, c, ch, sb, b, t, n] of D.ho) if (d >= fi && d <= effTo && teamOk(t) && ch1Ok(ch, sb)) R.ho1[c] += n;
+  // Days off: defaults to the Mondays in the range (weekly off); the Days off box overrides it.
+  // Working days = calendar days up to the as-of date - days off. SC days are spread over working days in proportion.
+  const calDays = D.months.map(() => 0);
+  R.autoOff = 0; R.scCal = z(nC);
   for (let d = fi; d <= effTo; d++) {
-    const mi = D.months.indexOf(D.dates[d].slice(0, 7));
-    calDays[mi]++;
-    if (isMon(D.dates[d])) { R.off++; continue; }
-    workDays[mi]++;
+    calDays[D.months.indexOf(D.dates[d].slice(0, 7))]++;
+    if (isMon(D.dates[d])) R.autoOff++;
   }
-  R.pastTot = workDays.reduce((a, b) => a + b, 0);
   R.calTot = calDays.reduce((a, b) => a + b, 0);
-  for (const [mi, c, t, k, n] of D.rost) if (teamOk(t) && counted(k)) { R.scDays[c] += n * workDays[mi]; R.scCal[c] += n * calDays[mi]; }
-  R.wd = R.pastTot;
+  R.off = S.offManual == null ? R.autoOff : Math.min(S.offManual, R.calTot);
+  R.wd = Math.max(0, R.calTot - R.off);
+  R.pastTot = R.wd;
+  const share = R.calTot ? R.wd / R.calTot : 0;
+  for (const [mi, c, t, k, n] of D.rost) if (teamOk(t) && counted(k)) { R.scDays[c] += n * calDays[mi] * share; R.scCal[c] += n * calDays[mi]; }
   return R;
 }
 
@@ -392,9 +410,11 @@ function render() {
   if (!D) return;
   $('fFrom').value = S.from; $('fTo').value = S.to;
   const R = compute(), ids = cityList(), all = D.cities.map((_, i) => i);
-  $('daysOff').innerHTML = `${R.off} <small>· ${R.wd} working days</small>`;
+  if (document.activeElement !== $('fOff')) $('fOff').value = R.off;
+  $('wdInfo').textContent = `${R.wd} working day${R.wd === 1 ? '' : 's'}${S.offManual == null ? ' (Mondays off)' : ''}`;
   const I = {};
   renderSuff(R, ids, all, I);
+  renderPlanner(R, ids, all);
   renderFunnel(R, I);
   renderFunnelBand(R);
   renderFunnelCity(R);
@@ -405,24 +425,30 @@ function render() {
 }
 
 // ---------- Lead sufficiency & SC utilisation ----------
+// Shared row maths for Lead sufficiency and the SC planner. sc(c) = SC count used for a city; capacity = SC x meetings/day x working days.
+function suffAgg(R, cs, scOf) {
+  const o = {sc: 0, ms: 0, md: 0, bq: 0, ho: 0};
+  cs.forEach(c => { o.sc += scOf(c); o.ms += R.ms1[c]; o.md += R.md1[c]; o.bq += R.bq1[c]; o.ho += R.ho1[c]; });
+  o.cap = o.sc * S.perDay * R.wd; o.u = o.ms / o.cap;
+  o.mdsc = o.sc ? o.md / o.sc : NaN; o.conv = o.md / o.ms;   // MD / SC = total MD ÷ SC count
+  o.a = o.cap ? o.md / o.cap : NaN;                           // capacity utilisation = total MD ÷ meeting capacity
+  o.msReq = o.cap && o.conv ? o.cap / o.conv : NaN;           // MS needed to fill capacity at the current MS -> MD rate
+  o.mdHo = o.ho / o.md; o.bqHo = o.ho / o.bq;                 // HoTo rates
+  return o;
+}
+const suffHead = sc => `<thead><tr><th>City</th><th>${sc}</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD / SC</th><th>Capacity utilisation</th><th>Actual MS → MD</th><th class="sep" title="Meeting capacity ÷ actual MS → MD">MS required at current MS → MD</th><th class="sep">MD → HoTo</th><th>BQL → HoTo</th></tr></thead>`;
+const suffCells = (o, scCell) => `<td>${scCell}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${f1(o.mdsc)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td><td class="sep">${fmt(o.msReq)}</td><td class="sep">${pct(o.mdHo)}</td><td>${pct(o.bqHo)}</td>`;
+
 function renderSuff(R, ids, all, I) {
-  const rate = S.perDay, tgt = S.perDay * R.wd;
-  const A = cs => {
-    const o = {scDays: 0, scCal: 0, ms: 0, md: 0, mdSc: 0, msAll: 0, mdAll: 0};
-    cs.forEach(c => { o.scDays += R.scDays[c]; o.scCal += R.scCal[c]; o.ms += R.ms1[c]; o.md += R.md1[c]; o.mdSc += R.md1sc[c]; o.msAll += R.msAll[c]; o.mdAll += R.mdAll[c]; });
-    o.sc = R.calTot ? o.scCal / R.calTot : 0;
-    o.cap = o.scDays * rate; o.u = o.ms / o.cap;
-    o.mdsc = o.sc ? o.md / o.sc : NaN; o.conv = o.md / o.ms;   // MD / SC = total MD ÷ SC count
-    o.a = o.cap ? o.md / o.cap : NaN;                           // capacity utilisation = total MD ÷ meeting capacity
-    o.msReq = o.cap && o.conv ? o.cap / o.conv : NaN;           // MS needed to fill capacity at the current MS -> MD rate
-    return o;
-  };
-  const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td><td>${fmt(o.sc)}</td><td>${o.cap ? fmt(o.cap) : '–'}</td><td>${fmt(o.ms)}</td><td class="${o.cap ? tone(o.u) : ''}">${o.cap ? pct(o.u) : '–'}</td><td>${fmt(o.md)}</td><td>${f1(o.mdsc)}</td><td class="${tone(o.a)}">${pct(o.a)}</td><td>${pct(o.conv)}</td><td class="sep">${fmt(o.msReq)}</td></tr>`;
+  const tgt = S.perDay * R.wd;
+  const mpSc = c => R.calTot ? R.scCal[c] / R.calTot : 0;   // manpower SC count, day-weighted across months
+  const A = cs => suffAgg(R, cs, mpSc);
+  const row = (name, o, cls, c) => `<tr class="${cls}"${dc(c)}><td>${name}</td>${suffCells(o, fmt(o.sc))}</tr>`;
   const pan = A(all), sel = A(ids);
   // PAN stays on top and Other cities last; cities sorted by the Sort by filter
   const by = {u: (a, b) => sortV(a.o.u, b.o.u), uDesc: (a, b) => (isFinite(b.o.u) ? b.o.u : -1) - (isFinite(a.o.u) ? a.o.u : -1), scDesc: (a, b) => b.o.sc - a.o.sc, scAsc: (a, b) => a.o.sc - b.o.sc}[S.sort1];
   const rows = ids.map(c => ({c, o: A([c])})).sort((a, b) => (a.c === OTH) - (b.c === OTH) || by(a, b));
-  $('t1').innerHTML = `<thead><tr><th>City</th><th>SC count (Active)</th><th>Meeting capacity</th><th>MS to date</th><th>MS ÷ capacity</th><th>MD</th><th>MD / SC</th><th>Capacity utilisation</th><th>Actual MS → MD</th><th class="sep" title="Meeting capacity ÷ actual MS → MD">MS required at current MS → MD</th></tr></thead><tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
+  $('t1').innerHTML = `${suffHead('SC count (Active)')}<tbody>${row('PAN', pan, 'pan')}${rows.map(r => row(D.cities[r.c], r.o, rowCls(r.c), r.c)).join('')}</tbody>`;
   const main = rows.filter(r => r.c !== OTH && r.o.sc >= 3);   // callouts skip cities with under 3 SCs
   const short = main.filter(r => r.o.u < 0.8), under = main.filter(r => r.o.a < 0.8).sort((a, b) => sortV(a.o.a, b.o.a));
   const filt = S.sub1 !== 'ALL' ? D.subs[S.sub1] : S.ch1 !== 'ALL' ? D.channels[S.ch1] : '';
@@ -432,12 +458,30 @@ function renderSuff(R, ids, all, I) {
   I.suff = {pan, sel, tgt, short, under};
 }
 
+// ---------- SC planner: same table, SC count typed in per city (blank = manpower count) ----------
+function renderPlanner(R, ids, all) {
+  const mpSc = c => R.calTot ? R.scCal[c] / R.calTot : 0;
+  const scOf = c => S.scIn[c] != null ? S.scIn[c] : Math.round(mpSc(c));
+  const pan = suffAgg(R, all, scOf);
+  const inp = c => `<input type="number" class="lever scin" data-c="${c}" min="0" step="1" value="${S.scIn[c] != null ? S.scIn[c] : ''}" placeholder="${Math.round(mpSc(c))}" style="width:72px;text-align:right">`;
+  const rows = ids.map(c => `<tr class="${c === OTH ? 'oth' : ''}"><td>${D.cities[c]}${S.scIn[c] != null ? ' <span class="lo" title="Typed in">✎</span>' : ''}</td>${suffCells(suffAgg(R, [c], scOf), inp(c))}</tr>`).join('');
+  $('tP').innerHTML = `${suffHead('SC count (type to change)')}<tbody><tr class="pan"><td>PAN</td>${suffCells(pan, fmt(pan.sc))}</tr>${rows}</tbody>`;
+  document.querySelectorAll('#tP .scin').forEach(el => el.onchange = () => {
+    const c = +el.dataset.c, v = el.value.trim();
+    if (v === '') delete S.scIn[c]; else S.scIn[c] = Math.max(0, Math.round(+v) || 0);
+    try { localStorage.setItem('scPlanner', JSON.stringify(S.scIn)); } catch (e) {}
+    render();
+  });
+  const n = Object.keys(S.scIn).length;
+  $('rP').innerHTML = `<p>${teamLbl()} · ${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}: ${fmt(pan.sc)} SCs → capacity ${fmt(pan.cap)}; MS at <b>${pct(pan.u)}</b> of capacity; capacity utilisation <b>${pct(pan.a)}</b>.${n ? ` ${n} cit${n === 1 ? 'y' : 'ies'} typed in.` : ' Type an SC count in any city to test a different headcount.'}</p>`;
+}
+
 // ---------- Lead utilisation x Channel (selected city or PAN) ----------
 function renderFunnel(R, I) {
   const nCh = D.channels.length, isPanView = S.city === 'ALL';
   // selected city, or PAN (all cities) when no city is selected; PAN is still used to colour city rates
   const inScope = c => isPanView || c === +S.city;
-  const z = () => ({b: new Array(nCh).fill(0), l: new Array(nCh).fill(0), s: new Array(nCh).fill(0), d: new Array(nCh).fill(0)});
+  const z = () => ({b: new Array(nCh).fill(0), l: new Array(nCh).fill(0), s: new Array(nCh).fill(0), d: new Array(nCh).fill(0), h: new Array(nCh).fill(0)});
   const city = z(), pan = z();
   for (const [d, c, ch, sb, b, t, v, l] of D.bql) {
     if (d < R.fi || d > R.effTo || !teamOk(t) || !bandOk(b, S.band2)) continue;
@@ -447,19 +491,23 @@ function renderFunnel(R, I) {
     if (d < R.fi || d > R.effTo || !teamOk(t) || !bandOk(b, S.band2)) continue;
     pan.s[ch] += ms; pan.d[ch] += md; if (inScope(c)) { city.s[ch] += ms; city.d[ch] += md; }
   }
-  const tot = o => ['b', 'l', 's', 'd'].forEach(k => o[k].push(o[k].reduce((a, v) => a + v, 0)));
+  for (const [d, c, ch, sb, b, t, n] of D.ho) {
+    if (d < R.fi || d > R.effTo || !teamOk(t) || !bandOk(b, S.band2)) continue;
+    pan.h[ch] += n; if (inScope(c)) city.h[ch] += n;
+  }
+  const tot = o => ['b', 'l', 's', 'd', 'h'].forEach(k => o[k].push(o[k].reduce((a, v) => a + v, 0)));
   tot(city); tot(pan);
   // LS LRM is tracked for Digital only (other channels reach LRM without bill qualification)
   const lrmOk = k => k === 0;
-  // [BQL -> LS LRM, LS LRM -> MS, BQL -> MS, MS -> MD, BQL -> MD]
-  const rates = (o, k) => [lrmOk(k) ? o.l[k] / o.b[k] : NaN, lrmOk(k) ? o.s[k] / o.l[k] : NaN, o.s[k] / o.b[k], o.d[k] / o.s[k], o.d[k] / o.b[k]];
+  // [BQL -> LS LRM, LS LRM -> MS, BQL -> MS, MS -> MD, BQL -> MD, MD -> HoTo, BQL -> HoTo]
+  const rates = (o, k) => [lrmOk(k) ? o.l[k] / o.b[k] : NaN, lrmOk(k) ? o.s[k] / o.l[k] : NaN, o.s[k] / o.b[k], o.d[k] / o.s[k], o.d[k] / o.b[k], o.h[k] / o.d[k], o.h[k] / o.b[k]];
   const names = D.channels.concat('Total');
   const line = (o, k, isPan, cls) => {
     const r = rates(o, k), p = rates(pan, k);
-    const cells = r.map((x, j) => `<td class="${j === 0 ? 'sep ' : ''}${isPan || isPanView ? '' : toneVs(x, p[j])}">${pct(x)}</td>`).join('');
-    return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(o.b[k])}</td><td>${lrmOk(k) ? fmt(o.l[k]) : '–'}</td><td>${fmt(o.s[k])}</td><td>${fmt(o.d[k])}</td>${cells}</tr>`;
+    const cells = r.map((x, j) => `<td class="${j === 0 || j === 5 ? 'sep ' : ''}${isPan || isPanView ? '' : toneVs(x, p[j])}">${pct(x)}</td>`).join('');
+    return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(o.b[k])}</td><td>${lrmOk(k) ? fmt(o.l[k]) : '–'}</td><td>${fmt(o.s[k])}</td><td>${fmt(o.d[k])}</td><td>${fmt(o.h[k])}</td>${cells}</tr>`;
   };
-  const head = `<thead><tr><th>Channel</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>BQL → MS</th><th>MS → MD</th><th>BQL → MD</th></tr></thead>`;
+  const head = `<thead><tr><th>Channel</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th>HoTo</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>BQL → MS</th><th>MS → MD</th><th>BQL → MD</th><th class="sep">MD → HoTo</th><th>BQL → HoTo</th></tr></thead>`;
   const body = D.channels.map((_, k) => line(city, k, false, '')).join('') + line(city, nCh, false, 'pan');
   const name = isPanView ? 'PAN (all cities)' : D.cities[+S.city];
   const cr = rates(city, nCh);
@@ -476,7 +524,7 @@ function renderFunnel(R, I) {
 function renderFunnelBand(R) {
   const nB = D.bands.length, isPanView = S.city === 'ALL', lrmOn = S.bdCh === '0';
   const inScope = c => isPanView || c === +S.city, chOk = ch => S.bdCh === 'ALL' || ch == S.bdCh;
-  const z = () => ({b: new Array(nB).fill(0), l: new Array(nB).fill(0), s: new Array(nB).fill(0), d: new Array(nB).fill(0)});
+  const z = () => ({b: new Array(nB).fill(0), l: new Array(nB).fill(0), s: new Array(nB).fill(0), d: new Array(nB).fill(0), h: new Array(nB).fill(0)});
   const city = z(), pan = z();
   for (const [d, c, ch, sb, b, t, v, l] of D.bql) {
     if (d < R.fi || d > R.effTo || !teamOk(t) || !chOk(ch)) continue;
@@ -486,17 +534,21 @@ function renderFunnelBand(R) {
     if (d < R.fi || d > R.effTo || !teamOk(t) || !chOk(ch)) continue;
     pan.s[b] += ms; pan.d[b] += md; if (inScope(c)) { city.s[b] += ms; city.d[b] += md; }
   }
-  const tot = o => ['b', 'l', 's', 'd'].forEach(k => o[k].push(o[k].reduce((a, v) => a + v, 0)));
+  for (const [d, c, ch, sb, b, t, n] of D.ho) {
+    if (d < R.fi || d > R.effTo || !teamOk(t) || !chOk(ch)) continue;
+    pan.h[b] += n; if (inScope(c)) city.h[b] += n;
+  }
+  const tot = o => ['b', 'l', 's', 'd', 'h'].forEach(k => o[k].push(o[k].reduce((a, v) => a + v, 0)));
   tot(city); tot(pan);
-  // [BQL -> LS LRM, LS LRM -> MS, BQL -> MS, MS -> MD, BQL -> MD]
-  const rates = (o, k) => [lrmOn ? o.l[k] / o.b[k] : NaN, lrmOn ? o.s[k] / o.l[k] : NaN, o.s[k] / o.b[k], o.d[k] / o.s[k], o.d[k] / o.b[k]];
+  // [BQL -> LS LRM, LS LRM -> MS, BQL -> MS, MS -> MD, BQL -> MD, MD -> HoTo, BQL -> HoTo]
+  const rates = (o, k) => [lrmOn ? o.l[k] / o.b[k] : NaN, lrmOn ? o.s[k] / o.l[k] : NaN, o.s[k] / o.b[k], o.d[k] / o.s[k], o.d[k] / o.b[k], o.h[k] / o.d[k], o.h[k] / o.b[k]];
   const names = D.bands.concat('Total');
   const line = (k, cls) => {
     const r = rates(city, k), p = rates(pan, k);
-    const cells = r.map((x, j) => `<td class="${j === 0 ? 'sep ' : ''}${isPanView ? '' : toneVs(x, p[j])}">${pct(x)}</td>`).join('');
-    return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(city.b[k])}</td><td>${lrmOn ? fmt(city.l[k]) : '–'}</td><td>${fmt(city.s[k])}</td><td>${fmt(city.d[k])}</td>${cells}</tr>`;
+    const cells = r.map((x, j) => `<td class="${j === 0 || j === 5 ? 'sep ' : ''}${isPanView ? '' : toneVs(x, p[j])}">${pct(x)}</td>`).join('');
+    return `<tr class="${cls}"><td>${names[k]}</td><td>${fmt(city.b[k])}</td><td>${lrmOn ? fmt(city.l[k]) : '–'}</td><td>${fmt(city.s[k])}</td><td>${fmt(city.d[k])}</td><td>${fmt(city.h[k])}</td>${cells}</tr>`;
   };
-  $('tBd').innerHTML = `<thead><tr><th>Lead score band</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>BQL → MS</th><th>MS → MD</th><th>BQL → MD</th></tr></thead><tbody>` +
+  $('tBd').innerHTML = `<thead><tr><th>Lead score band</th><th>BQL</th><th>LS LRM</th><th>MS</th><th>MD</th><th>HoTo</th><th class="sep">BQL → LS LRM</th><th>LS LRM → MS</th><th>BQL → MS</th><th>MS → MD</th><th>BQL → MD</th><th class="sep">MD → HoTo</th><th>BQL → HoTo</th></tr></thead><tbody>` +
     D.bands.map((_, k) => line(k, '')).join('') + line(nB, 'pan') + '</tbody>';
   const name = isPanView ? 'PAN (all cities)' : D.cities[+S.city];
   const best = D.bands.slice(0, 4).map((n, k) => [n, rates(city, k)[4]]).filter(x => isFinite(x[1]));
@@ -509,27 +561,28 @@ function renderFunnelCity(R) {
   const ok = (ch, sb, b) => (S.fcCh === 'ALL' || ch == S.fcCh) && (S.fcSub === 'ALL' || sb == S.fcSub) && bandOk(b, S.fcBand);
   const lrmOn = S.fcCh === '0';   // LS LRM for Digital only
   const z = () => new Array(nC).fill(0);
-  const B = z(), L = z(), M = z(), Dn = z();
+  const B = z(), L = z(), M = z(), Dn = z(), H = z();
   for (const [d, c, ch, sb, b, t, v, l] of D.bql) if (d >= R.fi && d <= R.effTo && teamOk(t) && ok(ch, sb, b)) { B[c] += v; L[c] += l; }
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) if (d >= R.fi && d <= R.effTo && teamOk(t) && ok(ch, sb, b)) { M[c] += ms; Dn[c] += md; }
+  for (const [d, c, ch, sb, b, t, n] of D.ho) if (d >= R.fi && d <= R.effTo && teamOk(t) && ok(ch, sb, b)) H[c] += n;
   const sum = a => a.reduce((x, y) => x + y, 0);
-  const pan = {b: sum(B), l: sum(L), s: sum(M), d: sum(Dn)};
+  const pan = {b: sum(B), l: sum(L), s: sum(M), d: sum(Dn), h: sum(H)};
   // one row per city (PAN first), funnel stages across
   const lines = [{n: 'PAN', o: pan, pan: true}].concat(
-    (S.city === 'ALL' ? D.cities.map((_, i) => i) : [+S.city]).map(c => ({n: D.cities[c], c, o: {b: B[c], l: L[c], s: M[c], d: Dn[c]}})));
-  // Digital: full funnel incl. LS LRM; any other selection: LS LRM columns are dropped
-  const cnt = lrmOn ? [o => fmt(o.b), o => fmt(o.l), o => fmt(o.s), o => fmt(o.d)] : [o => fmt(o.b), o => fmt(o.s), o => fmt(o.d)];
-  const rts = lrmOn ? [o => [o.l / o.b, o.b], o => [o.s / o.l, o.l], o => [o.d / o.s, o.s], o => [o.d / o.b, o.b]]
-    : [o => [o.s / o.b, o.b], o => [o.d / o.s, o.s], o => [o.d / o.b, o.b]];
-  const hdr = lrmOn ? ['BQL', 'LS LRM', 'MS', 'MD', 'BQL → LS LRM', 'LS LRM → MS', 'MS → MD', 'BQL → MD'] : ['BQL', 'MS', 'MD', 'BQL → MS', 'MS → MD', 'BQL → MD'];
+    (S.city === 'ALL' ? D.cities.map((_, i) => i) : [+S.city]).map(c => ({n: D.cities[c], c, o: {b: B[c], l: L[c], s: M[c], d: Dn[c], h: H[c]}})));
+  // Digital: full funnel incl. LS LRM; any other selection: LS LRM columns are dropped. HoTo rates on every selection.
+  const cnt = (lrmOn ? [o => fmt(o.b), o => fmt(o.l), o => fmt(o.s), o => fmt(o.d)] : [o => fmt(o.b), o => fmt(o.s), o => fmt(o.d)]).concat(o => fmt(o.h));
+  const rts = (lrmOn ? [o => [o.l / o.b, o.b], o => [o.s / o.l, o.l], o => [o.d / o.s, o.s], o => [o.d / o.b, o.b]]
+    : [o => [o.s / o.b, o.b], o => [o.d / o.s, o.s], o => [o.d / o.b, o.b]]).concat([o => [o.h / o.d, o.d], o => [o.h / o.b, o.b]]);
+  const hdr = (lrmOn ? ['BQL', 'LS LRM', 'MS', 'MD', 'HoTo', 'BQL → LS LRM', 'LS LRM → MS', 'MS → MD', 'BQL → MD'] : ['BQL', 'MS', 'MD', 'HoTo', 'BQL → MS', 'MS → MD', 'BQL → MD']).concat(['MD → HoTo', 'BQL → HoTo']);
   const nCnt = cnt.length;
   const rcell = (f, ln, j) => {
-    const [r, base] = f(ln.o), [pr] = f(pan), sep = j === 0 ? 'sep ' : '';
+    const [r, base] = f(ln.o), [pr] = f(pan), sep = j === 0 || j === rts.length - 2 ? 'sep ' : '';
     if (ln.pan || !isFinite(r)) return `<td class="${sep}${isFinite(r) ? '' : 'lo'}">${pct(r)}</td>`;
     if (base < 20) return `<td class="${sep}lo">${pct(r)}</td>`;
     return `<td class="${sep}${toneVs(r, pr)}">${pct(r)}</td>`;
   };
-  $('tFc').innerHTML = `<thead><tr><th>City</th>${hdr.map((h, i) => `<th${i === nCnt ? ' class="sep"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>` +
+  $('tFc').innerHTML = `<thead><tr><th>City</th>${hdr.map((h, i) => `<th${i === nCnt || i === hdr.length - 2 ? ' class="sep"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>` +
     lines.map(ln => `<tr class="${ln.pan ? 'pan' : rowCls(ln.c)}"${dc(ln.c)}><td>${ln.n}</td>${cnt.map(f => `<td>${f(ln.o)}</td>`).join('')}${rts.map((f, j) => rcell(f, ln, j)).join('')}</tr>`).join('') + '</tbody>';
   const scope = [S.fcSub !== 'ALL' ? D.subs[S.fcSub] : S.fcCh !== 'ALL' ? D.channels[S.fcCh] : 'all channels', bandLbl(S.fcBand), teamLbl() + ' MS / MD'].join(' · ');
   // summary uses only the rates shown: Digital ranks on BQL -> MD, other selections on BQL -> MS
@@ -568,29 +621,26 @@ function renderCohort(R, ids) {
   const cum = (o, st, k) => o.st[st].slice(0, k + 1).reduce((a, b) => a + b, 0);
   const r = (n, dd) => dd ? n / dd : NaN;
   const cell = (v, n, k, isLm) => k > reach + (isLm ? 1 : 0) ? '<td class="fut">–</td>' : `<td title="${n != null ? fmt(n) : ''}">${pct(v)}</td>`;
-  // Ladder layout: one block per cohort (selected dates, then LMTD); columns Cohort | BQL | Metric | M0 | by M1 | by M2.
-  // Drill-down rows (▸) open under both cohorts together.
+  // Layout: one row per cohort (selected dates, then LMTD below it); each metric is a column group with
+  // M0 | by M1 | by M2 side by side. ▸ on a group header opens more metric groups to the right.
   const tog = (key, lbl) => `<span class="tog" data-x="${key}" style="cursor:pointer">${S[key] ? '▾' : '▸'} ${lbl}</span>`;
-  const metrics = [[tog('x3md', '<b>BQL → MD</b>'), (o, k) => r(cum(o, 2, k), o.bql), (o, k) => cum(o, 2, k)]];
+  const groups = [{h: tog('x3md', 'BQL → MD'), f: (o, k) => r(cum(o, 2, k), o.bql), n: (o, k) => cum(o, 2, k)}];
   if (S.x3md) {
-    metrics.push(['&nbsp;&nbsp;&nbsp;' + tog('x3ms', 'BQL → MS'), (o, k) => r(cum(o, 1, k), o.bql), (o, k) => cum(o, 1, k)]);
-    if (S.x3ms) {
-      if (digital) {
-        metrics.push(['&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BQL → LS LRM', (o, k) => r(cum(o, 0, k), o.bql), (o, k) => cum(o, 0, k)]);
-        metrics.push(['&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LS LRM → MS', (o, k) => r(cum(o, 1, k), cum(o, 0, k)), null]);
-      } else metrics.push(['&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="lo">BQL → LS LRM / LS LRM → MS: select Channel = Digital</span>', null, null]);
+    groups.push({h: tog('x3ms', 'BQL → MS'), f: (o, k) => r(cum(o, 1, k), o.bql), n: (o, k) => cum(o, 1, k)});
+    if (S.x3ms && digital) {
+      groups.push({h: 'BQL → LS LRM', f: (o, k) => r(cum(o, 0, k), o.bql), n: (o, k) => cum(o, 0, k)});
+      groups.push({h: 'LS LRM → MS', f: (o, k) => r(cum(o, 1, k), cum(o, 0, k))});
     }
-    metrics.push(['&nbsp;&nbsp;&nbsp;MS → MD', (o, k) => r(cum(o, 2, k), cum(o, 1, k)), null]);
+    groups.push({h: 'MS → MD', f: (o, k) => r(cum(o, 2, k), cum(o, 1, k))});
   }
-  const block = (name, o, isLm, cls) => metrics.map(([lbl, f, cnt], i) =>
-    `<tr class="${i === 0 ? cls : ''}"${i === 0 ? ' style="border-top:2px solid var(--line)"' : ''}>` +
-    (i === 0 ? `<td rowspan="${metrics.length}" style="vertical-align:top;font-weight:650">${name}</td><td rowspan="${metrics.length}" style="vertical-align:top;font-weight:650">${fmt(o.bql)}</td>` : '') +
-    `<td style="text-align:left">${lbl}</td>` +
-    (f ? [0, 1, 2].map(k => cell(f(o, k), cnt ? cnt(o, k) : null, k, isLm)).join('') : '<td></td><td></td><td></td>') + '</tr>').join('');
+  const line = (name, o, isLm, cls) => `<tr class="${cls}"><td>${name}</td><td>${fmt(o.bql)}</td>` +
+    groups.map(g => [0, 1, 2].map(k => cell(g.f(o, k), g.n ? g.n(o, k) : null, k, isLm).replace('<td', k === 0 ? '<td class="sep"' : '<td').replace('class="sep" class="fut"', 'class="sep fut"')).join('')).join('') + '</tr>';
   const curLbl = `${dLbl(D.dates[R.fi])}–${dLbl(D.dates[R.effTo])}`;
   const lmLbl = lm.size ? `${dLbl(D.dates[Math.min(...lm)])}–${dLbl(D.dates[Math.max(...lm)])} <span class="lo" style="font-weight:400">(LMTD)</span>` : 'LMTD <span class="lo">(no data)</span>';
-  $('t3').innerHTML = `<thead><tr><th>Cohort (BQL dates)</th><th>BQL</th><th style="text-align:left">Metric</th><th>M0</th><th>by M1</th><th>by M2</th></tr></thead><tbody>` +
-    block(curLbl, A, false, 'grp') + block(lmLbl, Lm, true, '') + '</tbody>';
+  $('t3').innerHTML = `<thead><tr><th rowspan="2">Cohort (BQL dates)</th><th rowspan="2">BQL</th>${groups.map(g => `<th colspan="3" class="c sep">${g.h}</th>`).join('')}</tr>` +
+    `<tr>${groups.map(() => '<th class="sep">M0</th><th>by M1</th><th>by M2</th>').join('')}</tr></thead><tbody>` +
+    line(curLbl, A, false, 'grp') + line(lmLbl, Lm, true, '') + '</tbody>' +
+    (S.x3md && S.x3ms && !digital ? `<caption style="caption-side:bottom;text-align:left;padding-top:6px" class="lo">BQL → LS LRM and LS LRM → MS: select Channel = Digital</caption>` : '');
   document.querySelectorAll('#t3 .tog').forEach(el => el.onclick = () => { S[el.dataset.x] = !S[el.dataset.x]; render(); });
   const scope = [S.city === 'ALL' ? 'PAN' : D.cities[+S.city], S.ch3 === 'ALL' ? 'all channels' : D.channels[S.ch3], bandLbl(S.band3), teamLbl()].join(' · ');
   const nowMd = r(cum(A, 2, Math.min(reach, 2)), A.bql), sameMd = r(cum(LmSame, 2, 2), LmSame.bql), lmNow = r(cum(Lm, 2, 2), Lm.bql);
@@ -655,12 +705,14 @@ function renderOverview(R, I) {
   let bqSel = 0;
   for (const [d, c, ch, sb, b, t, v] of D.bql) if (d >= R.fi && d <= R.effTo && idSet.has(c) && teamOk(t) && (S.ch1 === 'ALL' || ch == S.ch1) && (S.sub1 === 'ALL' || sb == S.sub1)) bqSel += v;
   $('tiles').innerHTML = [
-    t(`${teamLbl()} SC count (Active)`, fmt(o.sc), `${scope} · ${R.wd} working days (${R.off} Monday${R.off === 1 ? '' : 's'} off)`),
+    t(`${teamLbl()} SC count (Active)`, fmt(o.sc), `${scope} · ${R.wd} working days (${R.off} day${R.off === 1 ? '' : 's'} off)`),
     t('MS ÷ capacity', pct(o.u), `${fmt(o.ms)} MS vs ${fmt(o.cap)} capacity`, tone(o.u)),
     t('MD per SC', f1(o.mdsc), `${fmt(o.md)} MD ÷ ${fmt(o.sc)} SCs`),
     t('Capacity utilisation', pct(o.a), `${fmt(o.md)} MD vs ${fmt(o.cap)} capacity`, tone(o.a)),
     t('MS → MD', pct(o.conv), `${fmt(o.md)} MD on ${fmt(o.ms)} MS`),
     t('BQL → MD', pct(o.md / bqSel), `${fmt(o.md)} MD on ${fmt(bqSel)} BQL`),
+    t('MD → HoTo', pct(o.mdHo), `${fmt(o.ho)} HoTo on ${fmt(o.md)} MD`),
+    t('BQL → HoTo', pct(o.ho / bqSel), `${fmt(o.ho)} HoTo on ${fmt(bqSel)} BQL`),
   ].join('');
   const card = (title, tab, body) => `<div class="card"><h4>${title}<a data-go="${tab}">Open ›</a></h4>${body}</div>`;
   const list = a => a.length ? a.join(', ') : 'none';
