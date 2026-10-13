@@ -86,11 +86,23 @@ foreach ($f in $rows) {
 }
 $rows = $null
 
-# As-of = latest meeting-done date, capped at yesterday IST (today is a partial day)
+# As-of = last COMPLETE day, never later than yesterday IST: the latest day that has meeting-done data AND whose BQL
+# is at least half the median daily BQL of the 7 days before it. A day the source has only partly loaded is left out.
 $lastFull = [datetime]::UtcNow.AddHours(5.5).Date.AddDays(-1)
-$asOf = [datetime]::MinValue
-foreach ($ld in $LEADS) { $d = $ld[9]; if ($d -and $d -gt $asOf -and $d -le $lastFull) { $asOf = $d } }
-if ($asOf -eq [datetime]::MinValue) { throw 'No meeting-done dates found' }
+$bqlDay = @{}; $mdMax = [datetime]::MinValue
+foreach ($ld in $LEADS) {
+  if ($ld[5] -and $ld[6] -and $ld[6] -le $lastFull) { $k = $ld[6].ToString('yyyy-MM-dd'); if ($bqlDay.ContainsKey($k)) { $bqlDay[$k]++ } else { $bqlDay[$k] = 1 } }
+  if ($ld[9] -and $ld[9] -gt $mdMax -and $ld[9] -le $lastFull) { $mdMax = $ld[9] }
+}
+if ($mdMax -eq [datetime]::MinValue) { throw 'No meeting-done dates found' }
+$asOf = $mdMax
+while ($true) {
+  $prev = @(1..7 | ForEach-Object { $k = $asOf.AddDays(-$_).ToString('yyyy-MM-dd'); if ($bqlDay.ContainsKey($k)) { $bqlDay[$k] } else { 0 } } | Sort-Object)
+  $med = $prev[3]; $today = $bqlDay[$asOf.ToString('yyyy-MM-dd')]; if (-not $today) { $today = 0 }
+  if ($med -eq 0 -or $today -ge 0.5 * $med) { break }
+  Write-Host "NOTE: $($asOf.ToString('dd MMM')) looks incomplete in the source (BQL $today vs typical $med) - dashboard runs to the day before"
+  $asOf = $asOf.AddDays(-1)
+}
 $startD = [datetime]::ParseExact($Start, 'yyyy-MM-dd', $INV)
 $endD   = (New-Object DateTime($asOf.Year, $asOf.Month, 1)).AddMonths(1).AddDays(-1)
 $asOfLm = $asOf.AddMonths(-1)   # fair LMTD: last month's cohort only counts events up to the same day last month
