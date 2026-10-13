@@ -192,31 +192,44 @@ for ($mi = 0; $mi -lt $months.Count; $mi++) {
   Write-Host "$mk SCs (Field): active $a + resigned $rr (from $($rosterFrom[$mi]) file, present on Raw Data)"
 }
 
-# ---- MOP: rows [cityIdx, day, metric, chIdx, value]; metric 0 BQL, 1 MS, 2 MD (FS+Insta) ----
+# ---- MOP: rows [cityIdx, day, metric, chIdx, value]; metric 0 BQL, 1 MS, 2 MD (FS+Insta), 3 Order (FS) ----
+# MOP tab (layout from 13 Oct 2026): A Cluster, B Day; then per metric the columns below (0-based), channel order
+# Digital, Referral, BTL, SolarPro, Others. Each channel can be the sum of several sub-columns.
+$MOPMAP = @(
+  @{m = 0; ch = @(@(6), @(8, 9), @(14, 15), @(11, 12), @(16)) }     # BQL: G | I+J | O+P | L+M | Q (IVR)
+  @{m = 1; ch = @(@(19), @(21, 22), @(27, 28), @(24, 25), @(29)) }  # MS:  T | V+W | AB+AC | Y+Z | AD (IVR)
+  @{m = 2; ch = @(@(33, 34), @(36, 37), @(42, 43), @(39, 40), @(44)) }  # MD: AH+AI | AK+AL | AQ+AR | AN+AO | AS (IVR)
+  @{m = 3; ch = @(@(48), @(50, 51), @(56, 57), @(53, 54), @()) }    # Order FS: AW | AY+AZ | BE+BF | BB+BC (kept for later)
+)
 $mopTmp = [IO.Path]::GetTempFileName()
 Invoke-WebRequest ($BASE + $MOP_GID) -UseBasicParsing -OutFile $mopTmp
-$ml = [IO.File]::ReadAllLines($mopTmp); Remove-Item $mopTmp
-$h1 = $ml[0] -split ','; $h2 = $ml[1] -split ','
+$mp2 = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($mopTmp)
+$mp2.TextFieldType = 'Delimited'; $mp2.SetDelimiters(','); $mp2.HasFieldsEnclosedInQuotes = $true
+$ml = New-Object System.Collections.Generic.List[object]
+while (-not $mp2.EndOfData) { $ml.Add($mp2.ReadFields()) }
+$mp2.Close(); Remove-Item $mopTmp
 $mopRows = New-Object System.Collections.Generic.List[string]
 # If the MOP tab's layout changes, skip MOP (the MOP tab then shows "no MOP") instead of stopping the whole refresh
-$mopOk = -not ($h1[3] -ne 'BQL' -or $h1[10] -ne 'MS' -or $h1[17] -notlike 'MD*' -or $h1[24] -ne 'ORDER (FS)' -or $h1[33] -ne 'ORDER (IS)' -or $h2[25] -ne 'Total FS')
-if (-not $mopOk) { Write-Host "NOTE: MOP tab layout changed - MOP skipped until the build is updated. Header: $($ml[0])"; $ml = @($ml[0], $ml[1], $ml[2]) }
-# Others = block Total - (Digital + Referral + SolarPro + BTL), so channels always add up to the sheet's Total (covers IVR, rounding)
-$blocks = @(@{m = 0; s = 4; t = 3 }, @{m = 1; s = 11; t = 10 }, @{m = 2; s = 18; t = 17 })   # orders not tracked
-$chOrder = @(0, 1, 3, 2)   # Digital, Referral, SolarPro->idx3, BTL->idx2
-function Get-Num($s) { $v = 0.0; if ([double]::TryParse("$s".Trim(), [Globalization.NumberStyles]::Float, $INV, [ref]$v)) { $v } else { 0 } }
-for ($i = 3; $i -lt $ml.Count; $i++) {
-  $q = $ml[$i] -split ','
-  $c = Get-CityIdx $q[0]; if ($c -lt 0) { continue }   # MOP only for the main cities
-  $day = 0; if (-not [int]::TryParse($q[1], [ref]$day)) { continue }
-  foreach ($bk in $blocks) {
-    $o = Get-Num $q[$bk.t]
-    for ($j = 0; $j -lt 4; $j++) { $v = Get-Num $q[$bk.s + $j]; $o -= $v; if ($v) { $mopRows.Add("[$c,$day,$($bk.m),$($chOrder[$j]),$v]") } }
-    if ($o) { $mopRows.Add("[$c,$day,$($bk.m),4,$o]") }
+$h1 = $ml[0]; $h2 = $ml[1]; $h3 = $ml[2]
+$mopOk = $h1[5] -eq 'BQL' -and $h1[18] -eq 'MS' -and $h1[31] -like 'MD*' -and $h1[46] -eq 'ORDER (FS)' -and $h2[6] -eq 'Digital' -and $h2[19] -eq 'Digital' -and $h3[0] -eq 'Cluster' -and $h3[1] -eq 'Day'
+if (-not $mopOk) { Write-Host "NOTE: MOP tab layout changed - MOP skipped until the build is updated. Header: $($h1 -join ',')" }
+function Get-Num($s) { $v = 0.0; if ([double]::TryParse(("$s".Trim() -replace ',', ''), [Globalization.NumberStyles]::Float, $INV, [ref]$v)) { $v } else { 0 } }
+$maxDay = 0
+if ($mopOk) {
+  for ($i = 3; $i -lt $ml.Count; $i++) {
+    $q = $ml[$i]
+    $day = 0; if (-not [int]::TryParse("$($q[1])".Trim(), [ref]$day)) { continue }
+    if ($day -gt $maxDay) { $maxDay = $day }
+    $c = Get-CityIdx $q[0]; if ($c -lt 0) { continue }   # MOP only for the main cities
+    foreach ($mm in $MOPMAP) {
+      for ($k = 0; $k -lt 5; $k++) {
+        $v = 0.0; foreach ($col in $mm.ch[$k]) { $v += Get-Num $q[$col] }
+        if ($v) { $mopRows.Add("[$c,$day,$($mm.m),$k,$v]") }
+      }
+    }
   }
 }
 # Guard against last month's MOP being tagged to a new month: day count must match the as-of month
-$maxDay = 0; for ($i = 3; $i -lt $ml.Count; $i++) { $dd = 0; if ([int]::TryParse(($ml[$i] -split ',')[1], [ref]$dd) -and $dd -gt $maxDay) { $maxDay = $dd } }
 if ($maxDay -ne [datetime]::DaysInMonth($asOf.Year, $asOf.Month)) {
   Write-Host "NOTE: MOP tab has $maxDay days but $($asOf.ToString('MMM yyyy')) has $([datetime]::DaysInMonth($asOf.Year, $asOf.Month)) - MOP skipped until the tab is updated"
   $mopRows.Clear()
