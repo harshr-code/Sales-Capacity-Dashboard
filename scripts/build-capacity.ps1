@@ -29,12 +29,11 @@ function Get-Date2($s) {
   if ($s -and [datetime]::TryParseExact($s.Trim(), $DFMT, $INV, [Globalization.DateTimeStyles]::None, [ref]$d)) { return $d }
   return $null
 }
-# Every city outside the 24 main cities (incl. blank / Invalid / Inactive) goes to "Other cities", so PAN = sheet total
-$CLUSTERS += 'Other cities'
+# Only the 24 main cities are kept (PAN = their total). Any other city, blank, Invalid or Inactive returns -1 and is left out.
 $cityIdx = @{}; for ($i = 0; $i -lt $CLUSTERS.Count; $i++) { $cityIdx[$CLUSTERS[$i]] = $i }
 function Get-CityIdx($s) {
   $s = "$s".Trim(); if ($ALIAS.ContainsKey($s)) { $s = $ALIAS[$s] }
-  if ($cityIdx.ContainsKey($s)) { return $cityIdx[$s] } else { return $CLUSTERS.Count - 1 }
+  if ($cityIdx.ContainsKey($s)) { return $cityIdx[$s] } else { return -1 }
 }
 # Channel from Col D: Digital, Referral, SolarPro as is; "BTL Activity" -> BTL; Referral with sub-channel BTL -> BTL
 # (sub-channel "BTL Referral"); every other source -> Others. Sub-channel from Col E as is.
@@ -163,6 +162,7 @@ function Add-C($p, $cd, $stage, $ev) {
   if ($coh.ContainsKey($key)) { $coh[$key]++ } else { $coh[$key] = 1 }
 }
 foreach ($ld in $LEADS) {
+  if ($ld[0] -lt 0) { continue }   # lead not in the 24 main cities
   $h = ''
   if ($ld[10]) { if (-not $hashCache.ContainsKey($ld[10])) { $hashCache[$ld[10]] = Get-Hash $ld[10] }; $h = $hashCache[$ld[10]] }
   $cd = $ld[6]; $inBql = $ld[5] -and $cd -and $cd -ge $startD -and $cd -le $asOf
@@ -184,7 +184,7 @@ for ($mi = 0; $mi -lt $months.Count; $mi++) {
   $mk = $months[$mi]
   foreach ($h in $present[$mk].Keys) {
     if (-not $roster[$mk].ContainsKey($h)) { continue }
-    $rp = $roster[$mk][$h]; if ($rp[2] -gt 2) { continue }
+    $rp = $roster[$mk][$h]; if ($rp[2] -gt 2 -or $rp[1] -lt 0) { continue }   # SC's manpower city must be a main city
     $k = "$mi|$($rp[1])|$($rp[0])|$($rp[2])"
     if ($rost.ContainsKey($k)) { $rost[$k]++ } else { $rost[$k] = 1 }
   }
@@ -197,15 +197,17 @@ $mopTmp = [IO.Path]::GetTempFileName()
 Invoke-WebRequest ($BASE + $MOP_GID) -UseBasicParsing -OutFile $mopTmp
 $ml = [IO.File]::ReadAllLines($mopTmp); Remove-Item $mopTmp
 $h1 = $ml[0] -split ','; $h2 = $ml[1] -split ','
-if ($h1[3] -ne 'BQL' -or $h1[10] -ne 'MS' -or $h1[17] -notlike 'MD*' -or $h1[24] -ne 'ORDER (FS)' -or $h1[33] -ne 'ORDER (IS)' -or $h2[25] -ne 'Total FS') { throw "MOP tab layout changed: $($ml[0])" }
 $mopRows = New-Object System.Collections.Generic.List[string]
+# If the MOP tab's layout changes, skip MOP (the MOP tab then shows "no MOP") instead of stopping the whole refresh
+$mopOk = -not ($h1[3] -ne 'BQL' -or $h1[10] -ne 'MS' -or $h1[17] -notlike 'MD*' -or $h1[24] -ne 'ORDER (FS)' -or $h1[33] -ne 'ORDER (IS)' -or $h2[25] -ne 'Total FS')
+if (-not $mopOk) { Write-Host "NOTE: MOP tab layout changed - MOP skipped until the build is updated. Header: $($ml[0])"; $ml = @($ml[0], $ml[1], $ml[2]) }
 # Others = block Total - (Digital + Referral + SolarPro + BTL), so channels always add up to the sheet's Total (covers IVR, rounding)
 $blocks = @(@{m = 0; s = 4; t = 3 }, @{m = 1; s = 11; t = 10 }, @{m = 2; s = 18; t = 17 })   # orders not tracked
 $chOrder = @(0, 1, 3, 2)   # Digital, Referral, SolarPro->idx3, BTL->idx2
 function Get-Num($s) { $v = 0.0; if ([double]::TryParse("$s".Trim(), [Globalization.NumberStyles]::Float, $INV, [ref]$v)) { $v } else { 0 } }
 for ($i = 3; $i -lt $ml.Count; $i++) {
   $q = $ml[$i] -split ','
-  $c = Get-CityIdx $q[0]; if ($c -eq $CLUSTERS.Count - 1) { continue }   # MOP only for the main cities
+  $c = Get-CityIdx $q[0]; if ($c -lt 0) { continue }   # MOP only for the main cities
   $day = 0; if (-not [int]::TryParse($q[1], [ref]$day)) { continue }
   foreach ($bk in $blocks) {
     $o = Get-Num $q[$bk.t]
