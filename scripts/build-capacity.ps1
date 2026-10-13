@@ -82,7 +82,8 @@ $LEADS = New-Object System.Collections.Generic.List[object]
 foreach ($f in $rows) {
   $ch = Get-ChIdx $f[3] $f[4]
   $LEADS.Add(@((Get-CityIdx $f[1]), $ch, (Get-SubIdx $ch $f[3] $f[4]), (Get-Band $f[5]), (Get-Team $f[6]), ("$($f[2])".Trim() -eq '1'),
-    (Get-Date2 $f[8]), (Get-Date2 $f[9]), (Get-Date2 $f[10]), (Get-Date2 $f[11]), "$($f[14])".Trim().ToLower()))
+    (Get-Date2 $f[8]), (Get-Date2 $f[9]), (Get-Date2 $f[10]), (Get-Date2 $f[11]), "$($f[14])".Trim().ToLower(),
+    (Get-Date2 $f[13]), (Get-Team $f[7])))   # [11] HoTo date (Col N), [12] last sales channel (Col H) - used for HoTo
 }
 $rows = $null
 
@@ -134,7 +135,8 @@ for ($mi = 0; $mi -lt $months.Count; $mi++) {
 # m:   d|c|ch|sub|b|t|k -> [MS, MD]   MS on First_Meeting_Schedule_Date (future slots kept to month end), MD on First_Meeting_Done_Date
 #      k = class of the SC (Col O) in that month's manpower file: 0 Active, 1 In training, 2 Resigned, 3 Other SC, 4 No SC email
 # bql: d|c|ch|sub|b|t -> [BQL, LRM]   BQL on Created_On where BQL_Flag = 1; LRM on its own date (Col J)
-$m = @{}; $bqlAgg = @{}; $hashCache = @{}
+# ho:  d|c|ch|sub|b|t -> HoTo        HoTo on HoTo_Date (Col N); t = last sales channel (Col H)
+$m = @{}; $bqlAgg = @{}; $ho = @{}; $hashCache = @{}
 function Add-M($dt, $p, $h, $slot) {
   $mk = $dt.ToString('yyyy-MM'); $k = 4
   if ($h) {
@@ -168,6 +170,11 @@ foreach ($ld in $LEADS) {
   if ($ld[7] -and $ld[7] -ge $startD -and $ld[7] -le $asOf) { Add-B $ld[7] $ld 1 }
   if ($ld[8] -and $ld[8] -ge $startD -and $ld[8] -le $endD) { Add-M $ld[8] $ld $h 0 }
   if ($ld[9] -and $ld[9] -ge $startD -and $ld[9] -le $asOf) { Add-M $ld[9] $ld $h 1 }
+  # HoTo on its own date (Col N), Field / Inside from the last sales channel (Col H)
+  if ($ld[11] -and $ld[11] -ge $startD -and $ld[11] -le $asOf) {
+    $key = "$($dIdx[$ld[11].ToString('yyyy-MM-dd')])|$($ld[0])|$($ld[1])|$($ld[2])|$($ld[3])|$($ld[12])"
+    if ($ho.ContainsKey($key)) { $ho[$key]++ } else { $ho[$key] = 1 }
+  }
 }
 
 # SC count rows mi|c|team|class: people in that month's manpower file (Active / In training / Resigned)
@@ -226,9 +233,11 @@ $sb = New-Object Text.StringBuilder
 [void]$sb.Append(',"rost":[' + (Join-Rows $rost { param($v) "$v" }) + ']')
 [void]$sb.Append(',"mop":{"month":"' + $asOf.ToString('yyyy-MM') + '","rows":[' + ($mopRows -join ',') + ']}')
 [void]$sb.Append(',"coh":[' + (Join-Rows $coh { param($v) "$v" }) + ']')
+[void]$sb.Append(',"ho":[' + (Join-Rows $ho { param($v) "$v" }) + ']')
 [void]$sb.Append(',"bql":[' + (Join-Rows $bqlAgg { param($v) "$($v[0]),$($v[1])" }) + ']}')
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($Out), $sb.ToString(), (New-Object Text.UTF8Encoding($false)))
 
 $totMs = 0; $totMd = 0; foreach ($v in $m.Values) { $totMs += $v[0]; $totMd += $v[1] }
 $totB = 0; $totL = 0; foreach ($v in $bqlAgg.Values) { $totB += $v[0]; $totL += $v[1] }
+$totH = 0; foreach ($v in $ho.Values) { $totH += $v }; Write-Host "HoTo: $totH"
 Write-Host ("As of {0} | BQL {1} | LRM {2} | MS {3} | MD {4} | cohort rows {5} | wrote {6} ({7:N0} KB)" -f $asOf.ToString('dd MMM yyyy'), $totB, $totL, $totMs, $totMd, $coh.Count, $Out, ((Get-Item $Out).Length / 1KB))
