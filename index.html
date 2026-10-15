@@ -37,6 +37,8 @@ input[type=number]{width:70px}
 .lever{background:var(--lev);color:var(--levink);font-weight:600}
 .ro{min-height:32px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:600}
 .ro small{font-weight:400;color:var(--mute)}
+.dataTill{font-size:11px;text-transform:none;letter-spacing:0;color:var(--g);font-weight:600;white-space:nowrap}
+.dataTill::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--g);margin-right:5px;vertical-align:-1px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;text-transform:none;letter-spacing:0}
 .chip{font:inherit;font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:5px 12px;min-height:32px;cursor:pointer}
 .chip:hover{border-color:var(--brand2)}
@@ -116,7 +118,7 @@ tbody tr.click:hover td,tbody tr.fl:hover td{background:var(--head)}
     <label>City<select id="fCity"></select></label>
     <label>Month<select id="fMonth"></select></label>
     <label>From<input type="date" id="fFrom"></label>
-    <label>To<input type="date" id="fTo"></label>
+    <label>To<input type="date" id="fTo"><small class="dataTill" id="dataTill"></small></label>
     <label>Sales channel<select id="fTeam"><option value="0">Field Sales</option><option value="1">Inside Sales</option><option value="ALL">Field + Inside</option></select></label>
   </div>
   <div class="grp lev" id="levers">
@@ -302,7 +304,8 @@ function bandMulti(el) {
 const isMon = k => new Date(k + 'T00:00:00Z').getUTCDay() === 1;
 // today in IST (D-day): the date pickers never go beyond it
 const TODAY = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
-const maxDate = () => D.dates.filter(k => k <= TODAY).pop() || D.dates[0];
+// Latest pickable date = last complete day in the data (as-of), never later than today. Dates the sheet has not filled yet can't be picked.
+const maxDate = () => D.dates.filter(k => k <= TODAY && k <= D.asOf).pop() || D.dates[0];
 
 const getData = () => fetch('capacity.json?v=' + Date.now(), {cache: 'no-store'}).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 getData().then(init).catch(e => { $('err').style.display = 'block'; $('err').textContent = 'Could not load data (' + e.message + ').'; });
@@ -312,6 +315,9 @@ function setData(d) {
   D.asOfIdx = DI[D.asOf];
   OTH = D.cities[D.cities.length - 1] === 'Other cities' ? D.cities.length - 1 : -1;   // data now carries the 24 main cities only
   $('asof').textContent = `Data as of ${dLbl(D.asOf)} ${D.asOf.slice(0, 4)} · refreshed ${D.generated}`;
+  // date pickers stop at the last day with data; marker under To shows that day
+  ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = maxDate(); });
+  $('dataTill').textContent = `Data till ${dLbl(maxDate())}`;
 }
 // Refresh button: asks the sheet's Apps Script web app to republish the sheet and start a GitHub rebuild,
 // then checks every 20 s for the new data (up to ~8 minutes) and redraws the page when it lands.
@@ -365,7 +371,6 @@ function init(d) {
   ['f0Ch', 'f1Ch', 'f3Ch', 'fFcCh', 'fBdCh'].forEach(id => opts($(id), chOpts, 'All channels'));
   document.querySelectorAll('.chips').forEach(bandMulti);
   subOpts($('f1Sub'), 'ALL'); subOpts($('fFcSub'), 'ALL');
-  ['fFrom', 'fTo'].forEach(id => { $(id).min = D.dates[0]; $(id).max = maxDate(); });
   setMonth(D.asOf.slice(0, 7));
   const on = (id, f) => $(id).addEventListener(id === 'fPerDay' ? 'input' : 'change', e => { f(e.target.value); render(); });
   on('fCity', v => S.city = v);
