@@ -522,9 +522,9 @@ function renderFlags(I) {
   const nC = D.cities.length, nCh = D.channels.length, nD = D.dates.length, end0 = D.asOfIdx;
   const grid = () => Array.from({length: nC}, () => Array.from({length: nCh}, () => new Float64Array(nD)));
   // daily series per city x channel: B = BQL, S2 = MS, M = MD (sales channel filter); Mall = MD all sales channels (MOP basis)
-  const B = grid(), S2 = grid(), M = grid(), Mall = grid(), Pmd = grid(), Pbq = grid();
+  const B = grid(), L = grid(), S2 = grid(), M = grid(), Mall = grid(), Pmd = grid(), Pbq = grid();
   for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) { Mall[c][ch][d] += md; if (teamOk(t)) { S2[c][ch][d] += ms; M[c][ch][d] += md; } }
-  for (const [d, c, ch, sb, b, t, v] of D.bql) if (teamOk(t)) B[c][ch][d] += v;
+  for (const [d, c, ch, sb, b, t, v, l] of D.bql) if (teamOk(t)) { B[c][ch][d] += v; L[c][ch][d] += l; }
   const mm = D.mop && D.mop.month;
   for (const [c, day, m, ch, v] of (D.mop ? D.mop.rows : [])) {
     const di = DI[`${mm}-${String(day).padStart(2, '0')}`]; if (di == null) continue;
@@ -540,13 +540,29 @@ function renderFlags(I) {
   // Evaluate every rule for a window ending on day `end`. Returns flags keyed by sig|city|channel.
   function evalAt(end) {
     const ws = end - FL.win + 1, p0 = ws - 28, p1 = ws - 1, out = {};
+    // PAN rates for the same window (benchmark for the SC-utilisation reasons); Digital is channel 0 (LS LRM tracked for Digital only)
+    let pB = 0, pS = 0, pM = 0, pBd = 0, pLd = 0, pSd = 0;
+    for (let c = 0; c < nC; c++) { pB += sum(B, c, null, ws, end); pS += sum(S2, c, null, ws, end); pM += sum(M, c, null, ws, end);
+      pBd += sum(B, c, 0, ws, end); pLd += sum(L, c, 0, ws, end); pSd += sum(S2, c, 0, ws, end); }
+    const panBM = pM / pB, panBS = pS / pB, panSM = pM / pS, panBL = pLd / pBd, panLS = pSd / pLd;
     for (let c = 0; c < nC; c++) {
       const scN = sc(c, end), cap = scN * S.perDay * wdays(ws, end), mdW = sum(M, c, null, ws, end), msW = sum(S2, c, null, ws, end);
       const scFlag = scN >= 3 && cap > 0 && mdW / cap * 100 < FL.t2;
       if (scFlag) {
-        const u = mdW / cap * 100, lead = msW / cap < 0.8;
-        out[`sc|${c}|`] = {sig: 'sc', c, ch: null, actual: u, bench: FL.t2, unit: '%', gap: cap - mdW, gapLbl: 'idle meeting slots', deep: u < FL.t2 - 15,
-          cause: lead ? 'Lead shortfall — MS low vs SC capacity' : 'Meetings not converting to MD', owner: lead ? 'Channel / LRM' : 'City sales (ZSM)'};
+        const u = mdW / cap * 100;
+        // Why are slots idle? List every funnel reason that applies vs PAN (same window): BQL supply, scheduling, completion.
+        const bqW = sum(B, c, null, ws, end), bqNeed = cap / panBM, reasons = [], owners = [];
+        if (bqW < 0.9 * bqNeed) { reasons.push(`BQL short (${fmt(bqW)} vs ${fmt(bqNeed)} needed)`); owners.push('Channel / Marketing'); }
+        const bd = sum(B, c, 0, ws, end), ld = sum(L, c, 0, ws, end), sd = sum(S2, c, 0, ws, end), gapPP = (a, b) => (b - a) * 100;
+        const sched = [];
+        if (bd >= FL.minB && gapPP(ld / bd, panBL) >= FL.t3) sched.push(`BQL → LS LRM ${pct(ld / bd)} vs ${pct(panBL)}`);
+        if (ld >= FL.minB / 2 && gapPP(sd / ld, panLS) >= FL.t3) sched.push(`LS LRM → MS ${pct(sd / ld)} vs ${pct(panLS)}`);
+        if (!sched.length && bqW >= FL.minB && gapPP(msW / bqW, panBS) >= FL.t3) sched.push(`BQL → MS ${pct(msW / bqW)} vs ${pct(panBS)}`);
+        if (sched.length) { reasons.push('Scheduling low: ' + sched.join(', ')); owners.push('LRM / Pre-sales'); }
+        if (msW >= FL.minB / 2 && gapPP(mdW / msW, panSM) >= FL.t3) { reasons.push(`MS → MD ${pct(mdW / msW)} vs ${pct(panSM)}`); owners.push('City sales (ZSM)'); }
+        out[`sc|${c}|`] = {sig: 'sc', c, ch: null, actual: u, bench: FL.t2, unit: '%', gap: cap - mdW, gapLbl: 'idle slots (capacity − MD)', deep: u < FL.t2 - 15,
+          cause: reasons.length ? reasons.join(' · ') + ' <span class="lo">(vs PAN)</span>' : 'Funnel in line with PAN — more SCs than current lead volume needs',
+          owner: owners[0] || 'City head'};
       }
       for (let ch = 0; ch < nCh; ch++) {
         const bqW = sum(B, c, ch, ws, end), sW = sum(S2, c, ch, ws, end), dW = sum(M, c, ch, ws, end);
