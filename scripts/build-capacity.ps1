@@ -68,7 +68,7 @@ Invoke-WebRequest ($BASE + $RAW_GID) -UseBasicParsing -OutFile $rawTmp
 Add-Type -AssemblyName Microsoft.VisualBasic
 $tp = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($rawTmp)
 $tp.TextFieldType = 'Delimited'; $tp.SetDelimiters(','); $tp.HasFieldsEnclosedInQuotes = $true
-$hdr = ($tp.ReadFields() -join ',').TrimStart([char]0xFEFF).Trim()
+$hdr = ($tp.ReadFields() -join ',').TrimStart([char]0xFEFF).Trim().TrimEnd(',')   # empty trailing columns in the sheet are ignored
 if ($hdr -ne $RAW_HDR) { $tp.Close(); throw "Raw Data header changed.`nExpected: $RAW_HDR`nGot:      $hdr" }
 $rows = New-Object System.Collections.Generic.List[object]
 while (-not $tp.EndOfData) { $rows.Add($tp.ReadFields()) }
