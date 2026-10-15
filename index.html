@@ -150,7 +150,7 @@ tbody tr.click:hover td,tbody tr.fl:hover td{background:var(--head)}
     </div>
     <div class="tiles" id="flTiles"></div>
     <div class="tw"><table id="tFl"></table></div>
-    <div class="note">Rolling window ending on the last complete day · 🔴 Red = far below the threshold, or still flagged after a full window; 🟠 Amber = just below · "Since" = consecutive days flagged · MD vs MOP uses Field + Inside (MOP basis); other signals follow the sales channel filter · Conversion drops compare with the 4 weeks before the window · Sorted by size of gap · Click a flag to open that city.</div>
+    <div class="note">Rolling window ending on the last complete day · 🔴 Red = far below the threshold, or still flagged after a full window; 🟠 Amber = just below · MD vs MOP uses Field + Inside (MOP basis); other signals follow the sales channel filter · Conversion drops compare with the 4 weeks before the window · Sorted by size of gap · Click a flag to open that city.</div>
   </section>
 </div>
 
@@ -592,11 +592,11 @@ function renderFlags(I) {
   $('flTiles').innerHTML = [t('🔴 Red', reds, 'act now', reds ? 'r' : 'g'), t('🟠 Amber', ambers, 'watch', ambers ? 'a' : 'g'), t('New today', fresh, 'first day flagged'),
     t('Resolved', resolved, 'since the day before'), t('Window', `${FL.win} days`, `${dLbl(D.dates[Math.max(0, ws)])}–${dLbl(D.asOf)}`)].join('');
   const val = f => f.unit === 'pp' ? `${f.actual.toFixed(1)}% <span class="lo">vs ${f.bench.toFixed(1)}%</span>` : `${f.actual.toFixed(1)}% <span class="lo">vs ${f.bench}%</span>`;
-  $('tFl').innerHTML = `<thead><tr><th></th><th>City</th><th style="text-align:left">Channel</th><th style="text-align:left">Signal</th><th>Actual vs threshold</th><th>Gap</th><th>Since</th><th style="text-align:left">Likely cause</th><th style="text-align:left">Owner</th></tr></thead><tbody>` +
+  $('tFl').innerHTML = `<thead><tr><th></th><th>City</th><th style="text-align:left">Channel</th><th style="text-align:left">Signal</th><th>Actual vs threshold</th><th>Gap</th><th style="text-align:left">Likely cause</th><th style="text-align:left">Owner</th></tr></thead><tbody>` +
     (shown.length ? shown.map(f => `<tr class="fl" style="cursor:pointer" data-c="${f.c}" data-sig="${f.sig}"><td>${f.sev === 'red' ? '🔴' : '🟠'}</td><td>${D.cities[f.c]}</td><td style="text-align:left">${f.ch == null ? 'All' : D.channels[f.ch]}</td>` +
       `<td style="text-align:left">${FL_SIG[f.sig]}${f.stage ? ' · ' + f.stage : ''}</td><td>${val(f)}</td><td>${fmt(f.gap)} <span class="lo">${f.gapLbl}</span></td>` +
-      `<td>${f.streak === 1 ? 'New' : f.streak > hist.length ? `${hist.length + 1}+ days` : 'Day ' + f.streak}</td><td style="text-align:left">${f.cause}</td><td style="text-align:left">${f.owner}</td></tr>`).join('')
-      : '<tr><td colspan="9" class="lo" style="text-align:center;padding:18px">No flags for these thresholds.</td></tr>') + '</tbody>';
+      `<td style="text-align:left">${f.cause}</td><td style="text-align:left">${f.owner}</td></tr>`).join('')
+      : '<tr><td colspan="8" class="lo" style="text-align:center;padding:18px">No flags for these thresholds.</td></tr>') + '</tbody>';
   document.querySelectorAll('#tFl tr.fl').forEach(tr => tr.onclick = () => {
     S.city = tr.dataset.c; $('fCity').value = S.city; setMonth(D.asOf.slice(0, 7)); S.offManual = null;
     showTab(tr.dataset.sig === 'md' || tr.dataset.sig === 'leak' ? 'funnel' : 'suff'); render(); window.scrollTo({top: 0});
