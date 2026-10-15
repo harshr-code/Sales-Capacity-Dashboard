@@ -69,7 +69,7 @@ tr.pan td{font-weight:650;background:var(--head)}
 tr.oth td{color:var(--mute)}
 tr.grp td{background:var(--na);font-weight:650;color:var(--ink)}
 tbody tr.click{cursor:pointer}
-tbody tr.click:hover td{background:var(--head)}
+tbody tr.click:hover td,tbody tr.fl:hover td{background:var(--head)}
 .g{color:var(--g);background:var(--gbg)!important}
 .a{color:var(--a);background:var(--abg)!important}
 .r{color:var(--r);background:var(--rbg)!important}
@@ -100,6 +100,7 @@ tbody tr.click:hover td{background:var(--head)}
   </div>
   <nav class="tabs" id="tabs">
     <button data-t="overview">Overview</button>
+    <button data-t="flags">🚩 Daily flags</button>
     <button data-t="suff">Lead sufficiency &amp; SC utilisation</button>
     <button data-t="planner">SC planner</button>
     <button data-t="funnel">Lead utilisation × Channel</button>
@@ -128,6 +129,27 @@ tbody tr.click:hover td{background:var(--head)}
 <div class="tab" id="t-overview">
   <div class="tiles" id="tiles"></div>
   <div class="att" id="att"></div>
+</div>
+
+<!-- DAILY FLAGS -->
+<div class="tab" id="t-flags">
+  <section>
+    <h2>Daily flags — early warning</h2>
+    <div class="sf">
+      <label title="Days in the rolling window, ending on the last complete day">Window (days)<input type="number" id="flWin" class="lever" min="3" max="28" value="7"></label>
+      <label title="Flag a city × channel when MD in the window is below this % of MOP for the same days">MD vs MOP below (%)<input type="number" id="flT1" class="lever" min="0" max="200" value="85"></label>
+      <label title="Flag a city when MD ÷ SC meeting capacity is below this %">Capacity utilisation below (%)<input type="number" id="flT2" class="lever" min="0" max="200" value="70"></label>
+      <label title="Flag when BQL → MS or MS → MD falls by at least this many points vs the 4 weeks before the window">Conversion drop (pp)<input type="number" id="flT3" class="lever" min="1" max="50" value="7"></label>
+      <label title="Minimum BQL in the window (MS / MD bases use half of this) before a flag is raised">Min base (BQL)<input type="number" id="flMin" class="lever" min="0" max="500" value="50"></label>
+    </div>
+    <div class="sf">
+      <div class="lbl">Signal<div class="chips" id="flSig"></div></div>
+      <div class="lbl">Severity<div class="chips" id="flSev"></div></div>
+    </div>
+    <div class="tiles" id="flTiles"></div>
+    <div class="tw"><table id="tFl"></table></div>
+    <div class="note">Rolling window ending on the last complete day · 🔴 Red = far below the threshold, or still flagged after a full window; 🟠 Amber = just below · "Since" = consecutive days flagged · MD vs MOP uses Field + Inside (MOP basis); other signals follow the sales channel filter · Conversion drops compare with the 4 weeks before the window · Sorted by size of gap · Click a flag to open that city.</div>
+  </section>
 </div>
 
 <!-- LEAD SUFFICIENCY & SC UTILISATION -->
@@ -364,6 +386,17 @@ function init(d) {
   on('fBdCh', v => S.bdCh = v);
   on('f0Ch', v => S.ch0 = v); on('f0cM', v => S.m0c = v); on('f0cV', v => S.v0c = v);
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.t));
+  // Daily flags: threshold boxes and signal / severity chips
+  [['flWin', 'win'], ['flT1', 't1'], ['flT2', 't2'], ['flT3', 't3'], ['flMin', 'minB']].forEach(([id, k]) =>
+    $(id).addEventListener('change', e => { const v = +e.target.value; if (isFinite(v) && e.target.value !== '') FL[k] = v; else e.target.value = FL[k]; render(); }));
+  const chipRow = (id, key, items) => {
+    $(id).innerHTML = items.map(([v, t]) => `<button type="button" class="chip" data-v="${v}">${t}</button>`).join('');
+    const paint = () => $(id).querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === FL[key]));
+    $(id).querySelectorAll('.chip').forEach(c => c.onclick = () => { FL[key] = c.dataset.v; paint(); render(); });
+    paint();
+  };
+  chipRow('flSig', 'sig', [['ALL', 'All'], ['md', 'MD vs MOP'], ['sc', 'SC utilisation'], ['leak', 'Funnel leakage']]);
+  chipRow('flSev', 'sev', [['ALL', 'All'], ['red', '🔴 Red'], ['amber', '🟠 Amber']]);
   window.addEventListener('hashchange', () => showTab(location.hash.slice(1), true));
   showTab(location.hash.slice(1) || 'overview', true);
   render();
@@ -373,7 +406,7 @@ function showTab(t, noHash) {
   S.tab = t;
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.id === 't-' + t));
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  $('levers').classList.toggle('hide', !['overview', 'suff', 'planner'].includes(t));
+  $('levers').classList.toggle('hide', !['overview', 'suff', 'planner', 'flags'].includes(t));
   if (!noHash) history.replaceState(null, '', '#' + t);
 }
 function setMonth(m) {
@@ -433,6 +466,7 @@ function render() {
   const I = {};
   renderSuff(R, ids, all, I);
   renderPlanner(R, ids, all);
+  renderFlags(I);
   renderFunnel(R, I);
   renderFunnelBand(R);
   renderFunnelCity(R);
@@ -474,6 +508,95 @@ function renderSuff(R, ids, all, I) {
     (S.city === 'ALL' ? `<p>Below 80% of capacity (lead shortfall): ${short.slice(0, 6).map(r => D.cities[r.c] + ' ' + pct(r.o.u)).join(', ') || 'none'}. Lowest capacity utilisation: ${under.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.a)).join(', ') || 'none'}.</p>` : '')
     : '<p>Selected dates are after the as-of date.</p>';
   I.suff = {pan, sel, tgt, short, under};
+}
+
+// ---------- Daily flags: rule-based early warnings on a rolling window ending on the last complete day ----------
+const FL = {win: 7, t1: 85, t2: 70, t3: 7, minB: 50, sig: 'ALL', sev: 'ALL'};
+const FL_SIG = {md: 'MD below MOP', sc: 'SC under-utilised', leak: 'Funnel leakage'};
+function renderFlags(I) {
+  const nC = D.cities.length, nCh = D.channels.length, nD = D.dates.length, end0 = D.asOfIdx;
+  const grid = () => Array.from({length: nC}, () => Array.from({length: nCh}, () => new Float64Array(nD)));
+  // daily series per city x channel: B = BQL, S2 = MS, M = MD (sales channel filter); Mall = MD all sales channels (MOP basis)
+  const B = grid(), S2 = grid(), M = grid(), Mall = grid(), Pmd = grid(), Pbq = grid();
+  for (const [d, c, ch, sb, b, t, k, ms, md] of D.m) { Mall[c][ch][d] += md; if (teamOk(t)) { S2[c][ch][d] += ms; M[c][ch][d] += md; } }
+  for (const [d, c, ch, sb, b, t, v] of D.bql) if (teamOk(t)) B[c][ch][d] += v;
+  const mm = D.mop && D.mop.month;
+  for (const [c, day, m, ch, v] of (D.mop ? D.mop.rows : [])) {
+    const di = DI[`${mm}-${String(day).padStart(2, '0')}`]; if (di == null) continue;
+    if (m === 2) Pmd[c][ch][di] += v; else if (m === 0) Pbq[c][ch][di] += v;
+  }
+  const sum = (A, c, ch, d0, d1) => { let s = 0; const chs = ch == null ? [...Array(nCh).keys()] : [ch]; for (const k of chs) for (let d = Math.max(0, d0); d <= Math.min(d1, nD - 1); d++) s += A[c][k][d]; return s; };
+  const sumMop = (A, c, ch, d0, d1) => { let s = 0; for (let d = Math.max(0, d0); d <= d1; d++) if (D.dates[d].startsWith(mm)) for (const k of (ch == null ? [...Array(nCh).keys()] : [ch])) s += A[c][k][d]; return s; };
+  const wdays = (d0, d1) => { let n = 0; for (let d = Math.max(0, d0); d <= Math.min(d1, nD - 1); d++) if (!isMon(D.dates[d])) n++; return n; };
+  const scAt = (c, d) => { const mi = D.months.indexOf(D.dates[Math.min(d, nD - 1)].slice(0, 7)); let n = 0; for (const [m, cc, t, k, v] of D.rost) if (m === mi && cc === c && teamOk(t) && (k === 0 || k === 2)) n += v; return n; };
+  const scCache = {}; const sc = (c, d) => (scCache[c + '|' + d] ??= scAt(c, d));
+  const minMs = FL.minB / 2;
+
+  // Evaluate every rule for a window ending on day `end`. Returns flags keyed by sig|city|channel.
+  function evalAt(end) {
+    const ws = end - FL.win + 1, p0 = ws - 28, p1 = ws - 1, out = {};
+    for (let c = 0; c < nC; c++) {
+      const scN = sc(c, end), cap = scN * S.perDay * wdays(ws, end), mdW = sum(M, c, null, ws, end), msW = sum(S2, c, null, ws, end);
+      const scFlag = scN >= 3 && cap > 0 && mdW / cap * 100 < FL.t2;
+      if (scFlag) {
+        const u = mdW / cap * 100, lead = msW / cap < 0.8;
+        out[`sc|${c}|`] = {sig: 'sc', c, ch: null, actual: u, bench: FL.t2, unit: '%', gap: cap - mdW, gapLbl: 'idle meeting slots', deep: u < FL.t2 - 15,
+          cause: lead ? 'Lead shortfall — MS low vs SC capacity' : 'Meetings not converting to MD', owner: lead ? 'Channel / LRM' : 'City sales (ZSM)'};
+      }
+      for (let ch = 0; ch < nCh; ch++) {
+        const bqW = sum(B, c, ch, ws, end), sW = sum(S2, c, ch, ws, end), dW = sum(M, c, ch, ws, end);
+        const bqP = sum(B, c, ch, p0, p1), sP = sum(S2, c, ch, p0, p1), dP = sum(M, c, ch, p0, p1);
+        const pDays = Math.max(1, p1 - Math.max(0, p0) + 1);
+        const bmDrop = bqW >= FL.minB && bqP >= FL.minB ? (sP / bqP - sW / bqW) * 100 : NaN;
+        const mdDrop = sW >= minMs && sP >= minMs ? (dP / sP - dW / sW) * 100 : NaN;
+        // funnel leakage vs the 4 weeks before the window
+        if (bmDrop >= FL.t3) out[`leak|${c}|${ch}|bm`] = {sig: 'leak', c, ch, stage: 'BQL → MS', actual: sW / bqW * 100, bench: sP / bqP * 100, unit: 'pp', gap: bqW * bmDrop / 100, gapLbl: 'MS lost', deep: bmDrop >= 2 * FL.t3, cause: 'Scheduling — BQL → MS fell', owner: 'LRM / Pre-sales'};
+        if (mdDrop >= FL.t3) out[`leak|${c}|${ch}|md`] = {sig: 'leak', c, ch, stage: 'MS → MD', actual: dW / sW * 100, bench: dP / sP * 100, unit: 'pp', gap: sW * mdDrop / 100, gapLbl: 'MD lost', deep: mdDrop >= 2 * FL.t3, cause: 'Meeting completion — MS → MD fell', owner: 'City sales (ZSM)'};
+        // MD vs MOP pace (MOP days only, all sales channels)
+        const mop = sumMop(Pmd, c, ch, ws, end), act = sumMop(Mall, c, ch, ws, end);
+        if (mop >= minMs && act / mop * 100 < FL.t1) {
+          const r = act / mop * 100, mopB = sumMop(Pbq, c, ch, ws, end);
+          const bqPace = bqP > 0 ? (bqW / FL.win) / (bqP / pDays) : NaN;
+          let cause, owner;
+          if (bqPace < 0.9) { cause = `BQL supply down (${pct(bqPace - 1)} vs prior 4 weeks)`; owner = 'Channel / Marketing'; }
+          else if (mopB > 0 && bqW < 0.9 * mopB) { cause = `BQL below MOP (${pct(bqW / mopB)} of MOP)`; owner = 'Channel / Marketing'; }
+          else if (bmDrop >= FL.t3) { cause = `Scheduling — BQL → MS down ${bmDrop.toFixed(1)}pp`; owner = 'LRM / Pre-sales'; }
+          else if (mdDrop >= FL.t3) { cause = `Meeting completion — MS → MD down ${mdDrop.toFixed(1)}pp`; owner = 'City sales (ZSM)'; }
+          else { cause = 'No single stage dropped — overall pace below MOP'; owner = 'City head'; }
+          if (scFlag) cause += ' · SCs also idle';
+          out[`md|${c}|${ch}`] = {sig: 'md', c, ch, actual: r, bench: FL.t1, unit: '%', gap: mop - act, gapLbl: 'MD below MOP', deep: r < FL.t1 - 15, cause, owner};
+        }
+      }
+    }
+    return out;
+  }
+  const today = evalAt(end0), hist = [];
+  for (let k = 1; k <= 13 && end0 - k - FL.win + 1 >= 0; k++) hist.push(evalAt(end0 - k));
+  const flags = Object.entries(today).map(([key, f]) => {
+    let streak = 1; for (const h of hist) { if (h[key]) streak++; else break; }
+    // Red = far below the threshold, or still flagged after a full window (windows overlap, so short streaks are expected)
+    return {...f, key, streak, sev: f.deep || streak >= FL.win ? 'red' : 'amber'};
+  });
+  const resolved = hist.length ? Object.keys(hist[0]).filter(k => !today[k]).length : 0;
+  const cityOk = f => S.city === 'ALL' || f.c === +S.city;
+  const shown = flags.filter(f => cityOk(f) && (FL.sig === 'ALL' || f.sig === FL.sig) && (FL.sev === 'ALL' || f.sev === FL.sev))
+    .sort((a, b) => (a.sev === b.sev ? 0 : a.sev === 'red' ? -1 : 1) || b.gap - a.gap);
+  const scoped = flags.filter(cityOk), reds = scoped.filter(f => f.sev === 'red').length, ambers = scoped.length - reds, fresh = scoped.filter(f => f.streak === 1).length;
+  const ws = end0 - FL.win + 1;
+  const t = (k, v, n, cls) => `<div class="tile ${cls || ''}"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`;
+  $('flTiles').innerHTML = [t('🔴 Red', reds, 'act now', reds ? 'r' : 'g'), t('🟠 Amber', ambers, 'watch', ambers ? 'a' : 'g'), t('New today', fresh, 'first day flagged'),
+    t('Resolved', resolved, 'since the day before'), t('Window', `${FL.win} days`, `${dLbl(D.dates[Math.max(0, ws)])}–${dLbl(D.asOf)}`)].join('');
+  const val = f => f.unit === 'pp' ? `${f.actual.toFixed(1)}% <span class="lo">vs ${f.bench.toFixed(1)}%</span>` : `${f.actual.toFixed(1)}% <span class="lo">vs ${f.bench}%</span>`;
+  $('tFl').innerHTML = `<thead><tr><th></th><th>City</th><th style="text-align:left">Channel</th><th style="text-align:left">Signal</th><th>Actual vs threshold</th><th>Gap</th><th>Since</th><th style="text-align:left">Likely cause</th><th style="text-align:left">Owner</th></tr></thead><tbody>` +
+    (shown.length ? shown.map(f => `<tr class="fl" style="cursor:pointer" data-c="${f.c}" data-sig="${f.sig}"><td>${f.sev === 'red' ? '🔴' : '🟠'}</td><td>${D.cities[f.c]}</td><td style="text-align:left">${f.ch == null ? 'All' : D.channels[f.ch]}</td>` +
+      `<td style="text-align:left">${FL_SIG[f.sig]}${f.stage ? ' · ' + f.stage : ''}</td><td>${val(f)}</td><td>${fmt(f.gap)} <span class="lo">${f.gapLbl}</span></td>` +
+      `<td>${f.streak === 1 ? 'New' : f.streak > hist.length ? `${hist.length + 1}+ days` : 'Day ' + f.streak}</td><td style="text-align:left">${f.cause}</td><td style="text-align:left">${f.owner}</td></tr>`).join('')
+      : '<tr><td colspan="9" class="lo" style="text-align:center;padding:18px">No flags for these thresholds.</td></tr>') + '</tbody>';
+  document.querySelectorAll('#tFl tr.fl').forEach(tr => tr.onclick = () => {
+    S.city = tr.dataset.c; $('fCity').value = S.city; setMonth(D.asOf.slice(0, 7)); S.offManual = null;
+    showTab(tr.dataset.sig === 'md' || tr.dataset.sig === 'leak' ? 'funnel' : 'suff'); render(); window.scrollTo({top: 0});
+  });
+  I.flags = {reds, ambers, fresh, top: shown.filter(f => f.sev === 'red').slice(0, 3)};
 }
 
 // ---------- SC planner: same table, SC count typed in per city (blank = manpower count) ----------
@@ -736,7 +859,10 @@ function renderOverview(R, I) {
   const card = (title, tab, body) => `<div class="card"><h4>${title}<a data-go="${tab}">Open ›</a></h4>${body}</div>`;
   const list = a => a.length ? a.join(', ') : 'none';
   const f = I.funnel;
+  const fl = I.flags;
   $('att').innerHTML = [
+    card('🚩 Daily flags', 'flags', `<p><b>${fl.reds}</b> red · <b>${fl.ambers}</b> amber · ${fl.fresh} new today.</p>` +
+      (fl.top.length ? fl.top.map(f => `<p>🔴 ${D.cities[f.c]}${f.ch == null ? '' : ' · ' + D.channels[f.ch]}: ${FL_SIG[f.sig]}${f.stage ? ' (' + f.stage + ')' : ''} — ${f.cause}</p>`).join('') : '<p>No red flags.</p>')),
     card('Lead sufficiency & SC utilisation', 'suff', `<p>MS at <b>${pct(s.pan.u)}</b> of capacity; MD / SC <b>${f1(s.pan.mdsc)}</b>; capacity utilisation <b>${pct(s.pan.a)}</b> (PAN).</p><p>Below 80% of capacity: ${list(s.short.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.u)))}.</p><p>Lowest capacity utilisation: ${list(s.under.slice(0, 5).map(r => D.cities[r.c] + ' ' + pct(r.o.a)))}.</p>`),
     card('Lead utilisation × Channel', 'funnel', `<p>${f.city}: BQL → MD <b>${pct(f.cr[4])}</b>${f.isPan ? '' : ` vs PAN ${pct(f.pr[4])}`}; BQL → MS ${pct(f.cr[2])}; MS → MD ${pct(f.cr[3])}.</p><p>${f.isPan ? 'Lowest BQL → MD by channel' : 'Furthest below PAN'}: ${list(f.weak.slice(0, 2).map(x => `${x[0]} ${pct(x[2])}`))}.</p>`),  ].join('');
   document.querySelectorAll('[data-go]').forEach(a => a.onclick = () => { showTab(a.dataset.go); window.scrollTo({top: 0}); });
