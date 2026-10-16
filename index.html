@@ -141,9 +141,7 @@ tbody tr.click:hover td,tbody tr.fl:hover td{background:var(--head)}
       <label title="Days in the rolling window, ending on the last complete day">Window (days)<input type="number" id="flWin" class="lever" min="3" max="28" value="7"></label>
       <label title="Flag a city × channel when MD in the window is below this % of MOP for the same days">MD vs MOP below (%)<input type="number" id="flT1" class="lever" min="0" max="200" value="85"></label>
       <label title="Flag a city when MD ÷ SC meeting capacity is below this %">Capacity utilisation below (%)<input type="number" id="flT2" class="lever" min="0" max="200" value="70"></label>
-      <label title="Flag when BQL → MS or MS → MD falls by at least this many points vs the 4 weeks before the window">Conversion drop (pp)<input type="number" id="flT3" class="lever" min="1" max="50" value="7"></label>
-      <label title="Minimum BQL in the window (MS / MD bases use half of this) before a flag is raised">Min base (BQL)<input type="number" id="flMin" class="lever" min="0" max="500" value="50"></label>
-    </div>
+      <label title="Flag when BQL → MS or MS → MD falls by at least this many points vs the 4 weeks before the window">Conversion drop (pp)<input type="number" id="flT3" class="lever" min="1" max="50" value="7"></label>    </div>
     <div class="sf">
       <div class="lbl">Signal<div class="chips" id="flSig"></div></div>
       <div class="lbl">Severity<div class="chips" id="flSev"></div></div>
@@ -392,7 +390,7 @@ function init(d) {
   on('f0Ch', v => S.ch0 = v); on('f0cM', v => S.m0c = v); on('f0cV', v => S.v0c = v);
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.t));
   // Daily flags: threshold boxes and signal / severity chips
-  [['flWin', 'win'], ['flT1', 't1'], ['flT2', 't2'], ['flT3', 't3'], ['flMin', 'minB']].forEach(([id, k]) =>
+  [['flWin', 'win'], ['flT1', 't1'], ['flT2', 't2'], ['flT3', 't3']].forEach(([id, k]) =>
     $(id).addEventListener('change', e => { const v = +e.target.value; if (isFinite(v) && e.target.value !== '') FL[k] = v; else e.target.value = FL[k]; render(); }));
   const chipRow = (id, key, items) => {
     $(id).innerHTML = items.map(([v, t]) => `<button type="button" class="chip" data-v="${v}">${t}</button>`).join('');
@@ -516,6 +514,7 @@ function renderSuff(R, ids, all, I) {
 }
 
 // ---------- Daily flags: rule-based early warnings on a rolling window ending on the last complete day ----------
+// minB: fixed minimum volume before a flag is raised (50 BQL; MS / MOP MD use half) - keeps small bases from flooding the list
 const FL = {win: 7, t1: 85, t2: 70, t3: 7, minB: 50, sig: 'ALL', sev: 'ALL'};
 const FL_SIG = {md: 'MD below MOP', sc: 'SC under-utilised', leak: 'Funnel leakage'};
 function renderFlags(I) {
