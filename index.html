@@ -607,8 +607,11 @@ function renderFlags(I) {
   const t = (k, v, n, cls) => `<div class="tile ${cls || ''}"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`;
   $('flTiles').innerHTML = [t('🔴 Red', reds, 'act now', reds ? 'r' : 'g'), t('🟠 Amber', ambers, 'watch', ambers ? 'a' : 'g'), t('New today', fresh, 'first day flagged'),
     t('Resolved', resolved, 'since the day before'), t('Window', `${FL.win} days`, `${dLbl(D.dates[Math.max(0, ws)])}–${dLbl(D.asOf)}`)].join('');
-  const val = f => f.unit === 'pp' ? `${f.actual.toFixed(1)}% <span class="lo">vs ${f.bench.toFixed(1)}%</span>` : `${f.actual.toFixed(1)}% <span class="lo">vs ${f.bench}%</span>`;
-  $('tFl').innerHTML = `<thead><tr><th></th><th>City</th><th style="text-align:left">Channel</th><th style="text-align:left">Signal</th><th>Actual vs threshold</th><th>Gap</th><th style="text-align:left">Likely cause</th><th style="text-align:left">Owner</th></tr></thead><tbody>` +
+  // what the comparison means differs by signal, so it is spelt out in the cell
+  const val = f => f.sig === 'leak' ? `${f.actual.toFixed(1)}% <span class="lo">last ${FL.win}d vs ${f.bench.toFixed(1)}% prior 4 wks</span>`
+    : f.sig === 'md' ? `${f.actual.toFixed(1)}% of MOP <span class="lo">vs ${f.bench}% bar</span>`
+    : `${f.actual.toFixed(1)}% utilised <span class="lo">vs ${f.bench}% bar</span>`;
+  $('tFl').innerHTML = `<thead><tr><th></th><th>City</th><th style="text-align:left">Channel</th><th style="text-align:left">Signal</th><th>Actual vs benchmark</th><th>Gap</th><th style="text-align:left">Likely cause</th><th style="text-align:left">Owner</th></tr></thead><tbody>` +
     (shown.length ? shown.map(f => `<tr class="fl" style="cursor:pointer" data-c="${f.c}" data-sig="${f.sig}"><td>${f.sev === 'red' ? '🔴' : '🟠'}</td><td>${D.cities[f.c]}</td><td style="text-align:left">${f.ch == null ? 'All' : D.channels[f.ch]}</td>` +
       `<td style="text-align:left">${FL_SIG[f.sig]}${f.stage ? ' · ' + f.stage : ''}</td><td>${val(f)}</td><td>${fmt(f.gap)} <span class="lo">${f.gapLbl}</span></td>` +
       `<td style="text-align:left">${f.cause}</td><td style="text-align:left">${f.owner}</td></tr>`).join('')
