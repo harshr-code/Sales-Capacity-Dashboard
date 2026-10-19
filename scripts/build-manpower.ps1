@@ -11,7 +11,7 @@ $FILES = [ordered]@{
   '2026-07' = "Manpower Data (Sales_PreSales_Inside sales_BTL) -October'26 -  July Mapping.csv"
   '2026-08' = "Manpower Data (Sales_PreSales_Inside sales_BTL) -October'26 - August Mapping.csv"
   '2026-09' = "Manpower Data (Sales_PreSales_Inside sales_BTL) -October'26 - September Mapping.csv"
-  '2026-10' = "Manpower Data (Sales_PreSales_Inside sales_BTL) -October'26 - October Mapping.csv"
+  '2026-10' = "Manpower Data (Sales_PreSales_Inside sales_BTL) -October'26 - October Mapping (2).csv"
 }
 $sha = [Security.Cryptography.SHA256]::Create()
 function Get-Hash($e) { (($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($e)) | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 20) }
@@ -25,17 +25,18 @@ function Get-City($s) {
   if ($s -match '^aurangabad|^chhatrapati') { return 'Aurangabad' }
   return (Get-Culture).TextInfo.ToTitleCase($s.ToLower())
 }
-# Logic (agreed with manager): for each month's file -> Department (Field sales = team 0, Inside sales = team 1)
+# Logic: for each month's file -> Department + Designation (Field sales SC / Sr SC = team 0, Inside sales SC = team 1)
 # -> City -> Current Status. Status class: 0 Active, 1 In training (In Training / Newly Hired), 2 Resigned, 3 any other status.
-# Only Active + Resigned are counted as SCs; the build also requires the email to appear in the MS to MD tab that month.
+# The dashboard counts Active (class 0) only.
 $lines = New-Object System.Collections.Generic.List[string]
 $lines.Add('month,team,hash,city,status')
 foreach ($mk in $FILES.Keys) {
   $rows = Import-Csv (Join-Path $Dir $FILES[$mk])
   $n = @{}
   foreach ($r in $rows) {
-    $dep = "$($r.Department)".Trim()
-    $team = if ($dep -eq 'Field sales') { 0 } elseif ($dep -eq 'Inside sales') { 1 } else { $null }
+    # SC tagging (19 Oct 2026): Field sales with Designation SC / Sr SC; Inside sales with Designation SC
+    $dep = "$($r.Department)".Trim(); $des = "$($r.Designation)".Trim()
+    $team = if ($dep -eq 'Field sales' -and ($des -eq 'SC' -or $des -eq 'Sr SC')) { 0 } elseif ($dep -eq 'Inside sales' -and $des -eq 'SC') { 1 } else { $null }
     if ($null -eq $team) { continue }
     $email = "$($r.'Email ID')".Trim().ToLower(); if (-not $email) { continue }
     $st = "$($r.'Current Status')".Trim()
