@@ -177,19 +177,18 @@ foreach ($ld in $LEADS) {
   }
 }
 
-# SC count rows mi|c|team|class: people in that month's manpower file (Active / In training / Resigned)
-# who also appear as SC (Col O) on a lead with MS or MD in that month. City and team come from the manpower file.
+# SC count rows mi|c|team|class: everyone tagged SC in that month's manpower file (Field sales SC / Sr SC, Inside sales SC),
+# by status class. City and team come from the manpower file. The dashboard counts Active (class 0) only.
 $rost = @{}
 for ($mi = 0; $mi -lt $months.Count; $mi++) {
   $mk = $months[$mi]
-  foreach ($h in $present[$mk].Keys) {
-    if (-not $roster[$mk].ContainsKey($h)) { continue }
+  foreach ($h in $roster[$mk].Keys) {
     $rp = $roster[$mk][$h]; if ($rp[2] -gt 2 -or $rp[1] -lt 0) { continue }   # SC's manpower city must be a main city
     $k = "$mi|$($rp[1])|$($rp[0])|$($rp[2])"
     if ($rost.ContainsKey($k)) { $rost[$k]++ } else { $rost[$k] = 1 }
   }
-  $a = 0; $rr = 0; foreach ($kk in $rost.Keys) { if ($kk -like "$mi|*|0|0") { $a += $rost[$kk] } elseif ($kk -like "$mi|*|0|2") { $rr += $rost[$kk] } }
-  Write-Host "$mk SCs (Field): active $a + resigned $rr (from $($rosterFrom[$mi]) file, present on Raw Data)"
+  $a = 0; foreach ($kk in $rost.Keys) { if ($kk -like "$mi|*|0|0") { $a += $rost[$kk] } }
+  Write-Host "$mk Active Field SCs (24 cities): $a (from $($rosterFrom[$mi]) file)"
 }
 
 # ---- MOP: rows [cityIdx, day, metric, chIdx, value]; metric 0 BQL, 1 MS, 2 MD (FS+Insta), 3 Order (FS) ----
