@@ -64,7 +64,13 @@ function Get-Team($s) { switch ("$s".Trim()) { 'Field Sales' { 0 } 'Inside Sales
 
 # ---- download + parse Raw Data (proper CSV parsing; guard header and row count) ----
 $rawTmp = [IO.Path]::GetTempFileName()
-Invoke-WebRequest ($BASE + $RAW_GID) -UseBasicParsing -OutFile $rawTmp
+# Right after a republish Google can serve "Loading..." while the sheet recalculates: wait and retry (up to ~8 min)
+for ($try = 1; $try -le 9; $try++) {
+  Invoke-WebRequest ($BASE + $RAW_GID + "&cb=$([DateTime]::UtcNow.Ticks)") -UseBasicParsing -OutFile $rawTmp
+  $sr0 = New-Object IO.StreamReader($rawTmp); $h0 = $sr0.ReadLine(); $sr0.Close()
+  if ($h0 -notmatch 'Loading|#REF|#N/A|#ERROR') { break }
+  Write-Host "Raw Data still loading in the sheet (try $try) - waiting 60 s"; Start-Sleep 60
+}
 Add-Type -AssemblyName Microsoft.VisualBasic
 $tp = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($rawTmp)
 $tp.TextFieldType = 'Delimited'; $tp.SetDelimiters(','); $tp.HasFieldsEnclosedInQuotes = $true
@@ -201,7 +207,11 @@ $MOPMAP = @(
   @{m = 3; ch = @(@(48), @(50, 51), @(56, 57), @(53, 54), @()) }    # Order FS: AW | AY+AZ | BE+BF | BB+BC (kept for later)
 )
 $mopTmp = [IO.Path]::GetTempFileName()
-Invoke-WebRequest ($BASE + $MOP_GID) -UseBasicParsing -OutFile $mopTmp
+for ($try = 1; $try -le 5; $try++) {
+  Invoke-WebRequest ($BASE + $MOP_GID + "&cb=$([DateTime]::UtcNow.Ticks)") -UseBasicParsing -OutFile $mopTmp
+  if ((Get-Content $mopTmp -TotalCount 1) -notmatch 'Loading|#REF') { break }
+  Write-Host "MOP tab still loading (try $try) - waiting 60 s"; Start-Sleep 60
+}
 $mp2 = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($mopTmp)
 $mp2.TextFieldType = 'Delimited'; $mp2.SetDelimiters(','); $mp2.HasFieldsEnclosedInQuotes = $true
 $ml = New-Object System.Collections.Generic.List[object]
