@@ -199,7 +199,7 @@ tbody tr.click:hover td,tbody tr.fl:hover td{background:var(--head)}
     <div class="sf"><label>Channel<select id="fFcCh"></select></label><label>Sub-channel<select id="fFcSub"></select></label><div class="lbl">Lead score band<div class="chips" id="fFcBand" data-key="fcBand"></div></div></div>
     <div class="read" id="rFc"></div>
     <div class="tw"><table id="tFc"></table></div>
-    <div class="note">Effort basis · Colours vs PAN (±5pp); grey = base under 20 · LS LRM shown when Channel = Digital.</div>
+    <div class="note">Effort basis · Grey = base under 20 · LS LRM shown when Channel = Digital.</div>
   </section>
 </div>
 
@@ -744,7 +744,7 @@ function renderFunnelCity(R) {
     const [r, base] = f(ln.o), [pr] = f(pan), sep = j === 0 || j === rts.length - 2 ? 'sep ' : '';
     if (ln.pan || !isFinite(r)) return `<td class="${sep}${isFinite(r) ? '' : 'lo'}">${pct(r)}</td>`;
     if (base < 20) return `<td class="${sep}lo">${pct(r)}</td>`;
-    return `<td class="${sep}${toneVs(r, pr)}">${pct(r)}</td>`;
+    return `<td class="${sep}">${pct(r)}</td>`;   // no red / green colouring in this table
   };
   $('tFc').innerHTML = `<thead><tr><th>City</th>${hdr.map((h, i) => `<th${i === nCnt || i === hdr.length - 2 ? ' class="sep"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>` +
     lines.map(ln => `<tr class="${ln.pan ? 'pan' : rowCls(ln.c)}"${dc(ln.c)}><td>${ln.n}</td>${cnt.map(f => `<td>${f(ln.o)}</td>`).join('')}${rts.map((f, j) => rcell(f, ln, j)).join('')}</tr>`).join('') + '</tbody>';
