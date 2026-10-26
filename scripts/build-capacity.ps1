@@ -63,13 +63,37 @@ function Get-Band($s) {
 function Get-Team($s) { switch ("$s".Trim()) { 'Field Sales' { 0 } 'Inside Sales' { 1 } default { 2 } } }
 
 # ---- download + parse Raw Data (proper CSV parsing; guard header and row count) ----
+# Primary source: the gzipped full copy of the Raw Data tab that the sheet's Apps Script writes to Drive on every refresh
+# ("Publish to web" stops at 250,000 rows). Fallback: the published CSV.
+$RAW_DRIVE_ID = '1CWnk6LVeAJjFjbejWuSRIAM9JOwMhyvw'   # Drive file id of growth-raw.csv.gz, written by the sheet's Apps Script
 $rawTmp = [IO.Path]::GetTempFileName()
-# Right after a republish Google can serve "Loading..." while the sheet recalculates: wait and retry (up to ~8 min)
-for ($try = 1; $try -le 9; $try++) {
-  Invoke-WebRequest ($BASE + $RAW_GID + "&cb=$([DateTime]::UtcNow.Ticks)") -UseBasicParsing -OutFile $rawTmp
-  $sr0 = New-Object IO.StreamReader($rawTmp); $h0 = $sr0.ReadLine(); $sr0.Close()
-  if ($h0 -notmatch 'Loading|#REF|#N/A|#ERROR') { break }
-  Write-Host "Raw Data still loading in the sheet (try $try) - waiting 60 s"; Start-Sleep 60
+$fromDrive = $false
+if ($RAW_DRIVE_ID) {
+  try {
+    $gz = [IO.Path]::GetTempFileName()
+    Invoke-WebRequest "https://drive.usercontent.google.com/download?id=$RAW_DRIVE_ID&export=download&confirm=t" -UseBasicParsing -OutFile $gz
+    # (names avoid $Out - PowerShell variables are case-insensitive and $Out is the script's output-path parameter)
+    $gzIn = $null; $zs = $null; $csvOut = $null
+    try {
+      $gzIn = [IO.File]::OpenRead($gz); $zs = New-Object IO.Compression.GZipStream($gzIn, [IO.Compression.CompressionMode]::Decompress)
+      $csvOut = [IO.File]::Create($rawTmp); $buf = New-Object byte[] 1048576
+      while (($n = $zs.Read($buf, 0, $buf.Length)) -gt 0) { $csvOut.Write($buf, 0, $n) }
+    } finally { if ($csvOut) { $csvOut.Close() }; if ($zs) { $zs.Close() }; if ($gzIn) { $gzIn.Close() } }
+    Remove-Item $gz
+    $sr0 = New-Object IO.StreamReader($rawTmp); $h0 = $sr0.ReadLine(); $sr0.Close()
+    if ($h0 -notlike 'Lead_ID,*') { throw "unexpected first line: $h0" }
+    $fromDrive = $true; Write-Host 'Raw Data source: Drive copy written by the sheet script'
+  } catch { Write-Host "NOTE: Drive copy not readable ($($_.Exception.Message)) - falling back to the published CSV" }
+}
+if (-not $fromDrive) {
+  # Right after a republish Google can serve "Loading..." while the sheet recalculates: wait and retry (up to ~8 min)
+  for ($try = 1; $try -le 9; $try++) {
+    Invoke-WebRequest ($BASE + $RAW_GID + "&cb=$([DateTime]::UtcNow.Ticks)") -UseBasicParsing -OutFile $rawTmp
+    $sr0 = New-Object IO.StreamReader($rawTmp); $h0 = $sr0.ReadLine(); $sr0.Close()
+    if ($h0 -notmatch 'Loading|#REF|#N/A|#ERROR') { break }
+    Write-Host "Raw Data still loading in the sheet (try $try) - waiting 60 s"; Start-Sleep 60
+  }
+  Write-Host 'Raw Data source: published CSV (capped at 250,000 rows by Google)'
 }
 Add-Type -AssemblyName Microsoft.VisualBasic
 $tp = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($rawTmp)
