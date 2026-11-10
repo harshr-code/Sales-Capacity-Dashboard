@@ -267,6 +267,39 @@ if ($maxDay -ne [datetime]::DaysInMonth($asOf.Year, $asOf.Month)) {
   Write-Host "NOTE: MOP tab has $maxDay days but $($asOf.ToString('MMM yyyy')) has $([datetime]::DaysInMonth($asOf.Year, $asOf.Month)) - MOP skipped until the tab is updated"
   $mopRows.Clear()
 }
+# Monthly MOP plan file (from Nov 2026): data/mop-YYYY-MM.csv, one row per cluster with monthly totals.
+# Used in place of the MOP tab when present; each monthly value is spread evenly over the days of the month.
+# Cols (0-based): B Cluster; channel order Digital, Referral (Sales+Non Sales), BTL (incl. BTL Referral), SolarPro, IVR.
+$mopFile = Join-Path (Join-Path $PSScriptRoot '..') "data\mop-$($asOf.ToString('yyyy-MM')).csv"
+if (Test-Path $mopFile) {
+  $MOPMAP_M = @(
+    @{m = 0; ch = @(3, 4, 10, 7, 13) }    # BQL: D | E | K | H | N
+    @{m = 1; ch = @(43, 44, 50, 47, 53) }  # MS:  AR | AS | AY | AV | BB
+    @{m = 2; ch = @(56, 59, 65, 62, 68) }  # MD:  BE | BH | BN | BK | BQ
+  )
+  $mp3 = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser([IO.Path]::GetFullPath($mopFile))
+  $mp3.TextFieldType = 'Delimited'; $mp3.SetDelimiters(','); $mp3.HasFieldsEnclosedInQuotes = $true
+  $ml3 = New-Object System.Collections.Generic.List[object]
+  while (-not $mp3.EndOfData) { $ml3.Add($mp3.ReadFields()) }
+  $mp3.Close()
+  $okM = $ml3[0][2] -eq 'BQL' -and $ml3[0][42] -eq 'MS' -and $ml3[0][55] -eq 'MD' -and $ml3[1][1] -eq 'Cluster' -and $ml3[1][3] -eq 'Digital' -and $ml3[1][43] -eq 'Digital' -and $ml3[1][56] -eq 'Digital'
+  if (-not $okM) { Write-Host "NOTE: $mopFile layout changed - monthly MOP skipped" }
+  else {
+    $mopRows.Clear()
+    $nd = [datetime]::DaysInMonth($asOf.Year, $asOf.Month)
+    for ($i = 3; $i -lt $ml3.Count; $i++) {
+      $c = Get-CityIdx $ml3[$i][1]; if ($c -lt 0) { continue }
+      foreach ($mm in $MOPMAP_M) {
+        for ($k = 0; $k -lt 5; $k++) {
+          $v = Get-Num $ml3[$i][$mm.ch[$k]]; if (-not $v) { continue }
+          $dv = [math]::Round($v / $nd, 3).ToString($INV)
+          for ($day = 1; $day -le $nd; $day++) { $mopRows.Add("[$c,$day,$($mm.m),$k,$dv]") }
+        }
+      }
+    }
+    Write-Host "MOP source: $mopFile (monthly plan spread evenly over $nd days)"
+  }
+}
 Write-Host "MOP tab : $($mopRows.Count) values for $($asOf.ToString('yyyy-MM'))"
 
 # ---- write JSON ----
