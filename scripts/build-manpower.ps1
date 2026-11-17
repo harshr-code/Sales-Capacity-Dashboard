@@ -12,6 +12,7 @@ $FILES = [ordered]@{
   '2026-08' = "Manpower Data (Sales_PreSales_Inside sales_BTL) -October'26 - August Mapping.csv"
   '2026-09' = "Manpower Data (Sales_PreSales_Inside sales_BTL) -October'26 - September Mapping.csv"
   '2026-10' = "Manpower Data (Sales_PreSales_Inside sales_BTL) -October'26 - October Mapping (2).csv"
+  '2026-11' = "Manpower Data (Sales_PreSales_Inside sales_BTL) -November'26 - November Mapping (1).csv"   # updated file shared 17 Nov 2026
 }
 $sha = [Security.Cryptography.SHA256]::Create()
 function Get-Hash($e) { (($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($e)) | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 20) }
