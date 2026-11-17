@@ -230,22 +230,31 @@ $MOPMAP = @(
   @{m = 2; ch = @(@(33, 34), @(36, 37), @(42, 43), @(39, 40), @(44)) }  # MD: AH+AI | AK+AL | AQ+AR | AN+AO | AS (IVR)
   @{m = 3; ch = @(@(48), @(50, 51), @(56, 57), @(53, 54), @()) }    # Order FS: AW | AY+AZ | BE+BF | BB+BC (kept for later)
 )
-$mopTmp = [IO.Path]::GetTempFileName()
-for ($try = 1; $try -le 5; $try++) {
-  Invoke-WebRequest ($BASE + $MOP_GID + "&cb=$([DateTime]::UtcNow.Ticks)") -UseBasicParsing -OutFile $mopTmp
-  if ((Get-Content $mopTmp -TotalCount 1) -notmatch 'Loading|#REF') { break }
-  Write-Host "MOP tab still loading (try $try) - waiting 60 s"; Start-Sleep 60
-}
-$mp2 = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($mopTmp)
-$mp2.TextFieldType = 'Delimited'; $mp2.SetDelimiters(','); $mp2.HasFieldsEnclosedInQuotes = $true
 $ml = New-Object System.Collections.Generic.List[object]
-while (-not $mp2.EndOfData) { $ml.Add($mp2.ReadFields()) }
-$mp2.Close(); Remove-Item $mopTmp
+# 17 Nov 2026: the MOP tab is only read when there is no monthly plan file for the as-of month (data/mop-YYYY-MM.csv).
+# An empty / unreadable MOP tab no longer stops the refresh (it crashed every run from 16 Nov when the tab was cleared).
+if (-not (Test-Path (Join-Path (Join-Path $PSScriptRoot '..') "data\mop-$($asOf.ToString('yyyy-MM')).csv"))) {
+  try {
+    $mopTmp = [IO.Path]::GetTempFileName()
+    for ($try = 1; $try -le 5; $try++) {
+      Invoke-WebRequest ($BASE + $MOP_GID + "&cb=$([DateTime]::UtcNow.Ticks)") -UseBasicParsing -OutFile $mopTmp
+      if ((Get-Content $mopTmp -TotalCount 1) -notmatch 'Loading|#REF') { break }
+      Write-Host "MOP tab still loading (try $try) - waiting 60 s"; Start-Sleep 60
+    }
+    $mp2 = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($mopTmp)
+    $mp2.TextFieldType = 'Delimited'; $mp2.SetDelimiters(','); $mp2.HasFieldsEnclosedInQuotes = $true
+    while (-not $mp2.EndOfData) { $ml.Add($mp2.ReadFields()) }
+    $mp2.Close(); Remove-Item $mopTmp
+  } catch { Write-Host "NOTE: MOP tab not readable ($($_.Exception.Message)) - MOP skipped" }
+}
 $mopRows = New-Object System.Collections.Generic.List[string]
 # If the MOP tab's layout changes, skip MOP (the MOP tab then shows "no MOP") instead of stopping the whole refresh
-$h1 = $ml[0]; $h2 = $ml[1]; $h3 = $ml[2]
-$mopOk = $h1[5] -eq 'BQL' -and $h1[18] -eq 'MS' -and $h1[31] -like 'MD*' -and $h1[46] -eq 'ORDER (FS)' -and $h2[6] -eq 'Digital' -and $h2[19] -eq 'Digital' -and $h3[0] -eq 'Cluster' -and $h3[1] -eq 'Day'
-if (-not $mopOk) { Write-Host "NOTE: MOP tab layout changed - MOP skipped until the build is updated. Header: $($h1 -join ',')" }
+$mopOk = $false
+if ($ml.Count -ge 3 -and $ml[0].Count -gt 46 -and $ml[1].Count -gt 19) {
+  $h1 = $ml[0]; $h2 = $ml[1]; $h3 = $ml[2]
+  $mopOk = $h1[5] -eq 'BQL' -and $h1[18] -eq 'MS' -and $h1[31] -like 'MD*' -and $h1[46] -eq 'ORDER (FS)' -and $h2[6] -eq 'Digital' -and $h2[19] -eq 'Digital' -and $h3[0] -eq 'Cluster' -and $h3[1] -eq 'Day'
+}
+if (-not $mopOk -and $ml.Count) { Write-Host "NOTE: MOP tab layout changed - MOP skipped until the build is updated. Header: $($ml[0] -join ',')" }
 function Get-Num($s) { $v = 0.0; if ([double]::TryParse(("$s".Trim() -replace ',', ''), [Globalization.NumberStyles]::Float, $INV, [ref]$v)) { $v } else { 0 } }
 $maxDay = 0
 if ($mopOk) {
